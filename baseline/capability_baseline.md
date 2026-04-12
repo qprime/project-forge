@@ -33,7 +33,7 @@ Tags describe project characteristics. A project can have multiple tags.
 | `[visual-output]` | Produces visual artifacts (SVG, diagrams) | mill_ui |
 | `[doc-corpus]` | Structured document repository with editorial standards | TenneCNC_LLC |
 | `[multi-persona]` | Uses multiple AI personas/roles for different functions | TenneCNC_LLC |
-| `[bootstrap-source]` | Source of truth for capability baseline | TenneCNC_LLC |
+| `[bootstrap-source]` | Source of truth for capability baseline | project-forge |
 
 ---
 

@@ -61,8 +61,8 @@ projects:
     description: Turn-based session manager
     domains: [session handling]
 
-  orchistrator:
-    repo: qprime/orchistrator
+  orchestrator:
+    repo: qprime/orchestrator
     description: Orchestrator
     domains: [orchestration]
 
@@ -71,8 +71,8 @@ projects:
     description: Artifact engine
     domains: [AI]
 
-  integraion-tests:
-    repo: qprime/integraion-tests
+  integration-tests:
+    repo: qprime/integration-tests
     description: Integration tests — infrastructure stack testing
     domains: [testing, infrastructure]
 

@@ -1,0 +1,100 @@
+# Project Registry — Single source of truth for project metadata (FG-1)
+# Managed by project-forge. Do not duplicate this data elsewhere.
+
+projects:
+  mill_ui:
+    repo: qprime/mill_ui
+    path: ~/Code/mill_ui
+    tags: [python, pipeline, declarative-input, github-issues]
+    baseline_version: "2026-04-05"
+    description: CNC panel assembly UI — parametric joinery, PanelSpec model
+    domains: [CAD/CAM, manufacturing, TypeScript]
+
+  tennecnc_llc:
+    repo: qprime/TenneCNC_LLC
+    path: ~/Code/TenneCNC_LLC
+    tags: [doc-corpus, multi-persona]
+    baseline_version: "2026-04-05"
+    description: Business docs — ADI taxonomy, whitepapers
+    domains: [business, documentation]
+
+  homenet:
+    repo: qprime/homenet
+    path: ~/Code/homenet
+    tags: [infrastructure, python]
+    description: Home network management — Linux, SSH, topology
+    domains: [infrastructure, networking]
+
+  cliff_ai:
+    repo: qprime/cliff_ai
+    path: ~/Code/cliff_ai
+    tags: [python]
+    description: AI management/memory framework — personal/business AI orchestration
+    domains: [AI, orchestration]
+
+  infrastructure:
+    repo: qprime/infrastructure
+    path: ~/Code/infrastructure
+    tags: [infrastructure, python]
+    description: Linux/network utilities — home network, TenneCNC infrastructure
+    domains: [infrastructure, networking]
+
+  turnstile:
+    repo: qprime/turnstile
+    tags: [python]
+    description: Carousel-based chat app — turn-focused content
+    domains: [web, chat]
+
+  artifact-assembler:
+    repo: qprime/artifact-assembler
+    tags: [python]
+    description: Deterministic discard-based context assembly
+    domains: [AI, context management]
+
+  SAK-router:
+    repo: qprime/SAK-router
+    description: Router
+    domains: [networking]
+
+  session-manager:
+    repo: qprime/session-manager
+    description: Turn-based session manager
+    domains: [session handling]
+
+  orchistrator:
+    repo: qprime/orchistrator
+    description: Orchestrator
+    domains: [orchestration]
+
+  artifact-engine:
+    repo: qprime/artifact-engine
+    description: Artifact engine
+    domains: [AI]
+
+  integraion-tests:
+    repo: qprime/integraion-tests
+    description: Integration tests — infrastructure stack testing
+    domains: [testing, infrastructure]
+
+  artifact-classifier:
+    repo: qprime/artifact-classifier
+    description: Profile-driven AI metadata/naming service — artifact storage prep
+    domains: [AI, classification]
+
+  penumbra-poc:
+    repo: qprime/penumbra-poc
+    tags: [python]
+    description: Log hidden-side completion POC — laser scanning, edge ML, Corley/Lewis
+    domains: [manufacturing, ML, scanning]
+
+  sdb-auditor:
+    repo: qprime/sdb-auditor
+    description: SDB auditor
+    domains: [AI, auditing]
+
+  project-forge:
+    repo: qprime/project-forge
+    path: ~/Code/project-forge
+    tags: [python, github-issues, infrastructure, bootstrap-source]
+    description: Cross-project intelligence, bootstrap orchestration, capability baseline
+    domains: [meta, bootstrapping, project management]

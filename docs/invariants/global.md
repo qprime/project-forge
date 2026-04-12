@@ -1,0 +1,51 @@
+# Forge Invariants
+
+Project-forge invariants. These are hard rules that govern how forge operates.
+
+---
+
+## FG-1: Registry-is-Truth
+
+**Classification:** HARD
+
+`registry/projects.yaml` is the single source of truth for project metadata. No other file duplicates this data.
+
+---
+
+## FG-2: Baseline-Canonical
+
+**Classification:** HARD
+
+Baseline files in forge (`baseline/`) are the canonical source. All other repos consume via bootstrap/rebase — they never modify baseline content.
+
+---
+
+## FG-3: Survey-Derived
+
+**Classification:** STRUCTURAL
+
+Project profiles produced by `/survey` are derived from reading live project state. They are never manually edited — re-survey to update.
+
+---
+
+## FG-4: Read-Before-Write
+
+**Classification:** HARD
+
+Forge reads other projects freely. It writes to other projects only during explicit `/bootstrap` or `/rebase` operations, and only with user approval.
+
+---
+
+## FG-5: Self-Bootstrap
+
+**Classification:** STRUCTURAL
+
+Forge must be bootstrappable from a cold start using only its own baseline files. No external dependency for self-setup.
+
+---
+
+## FG-6: No-Stale-Pointers
+
+**Classification:** POLICY
+
+Every project path and repo reference in the registry must resolve. `/status` detects and reports broken references.

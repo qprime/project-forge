@@ -27,7 +27,6 @@ projects:
 
   cliff_ai:
     repo: qprime/cliff_ai
-    path: ~/Code/cliff_ai
     tags: [python]
     description: AI management/memory framework — personal/business AI orchestration
     domains: [AI, orchestration]
@@ -41,54 +40,64 @@ projects:
 
   turnstile:
     repo: qprime/turnstile
+    path: ~/Code/turnstile
     tags: [python]
     description: Carousel-based chat app — turn-focused content
     domains: [web, chat]
 
   artifact-assembler:
     repo: qprime/artifact-assembler
+    path: ~/Code/artifact-assembler
     tags: [python]
     description: Deterministic discard-based context assembly
     domains: [AI, context management]
 
   SAK-router:
     repo: qprime/SAK-router
+    path: ~/Code/SAK-router
     description: Router
     domains: [networking]
 
   session-manager:
     repo: qprime/session-manager
+    path: ~/Code/session-manager
     description: Turn-based session manager
     domains: [session handling]
 
   orchestrator:
     repo: qprime/orchestrator
+    path: ~/Code/orchestrator
     description: Orchestrator
     domains: [orchestration]
 
   artifact-engine:
     repo: qprime/artifact-engine
+    path: ~/Code/artifact-engine
     description: Artifact engine
     domains: [AI]
 
   integration-tests:
     repo: qprime/integration-tests
+    path: ~/Code/integration-tests
     description: Integration tests — infrastructure stack testing
     domains: [testing, infrastructure]
 
   artifact-classifier:
     repo: qprime/artifact-classifier
+    path: ~/Code/artifact-classifier
     description: Profile-driven AI metadata/naming service — artifact storage prep
     domains: [AI, classification]
 
   penumbra-poc:
     repo: qprime/penumbra-poc
+    path: ~/Code/penumbra-poc
     tags: [python]
     description: Log hidden-side completion POC — laser scanning, edge ML, Corley/Lewis
     domains: [manufacturing, ML, scanning]
 
   sdb-auditor:
     repo: qprime/sdb-auditor
+    path: ~/Code/sdb-auditor
     description: SDB auditor
     domains: [AI, auditing]
 

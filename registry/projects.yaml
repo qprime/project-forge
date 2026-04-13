@@ -91,7 +91,8 @@ projects:
   penumbra-poc:
     repo: qprime/penumbra-poc
     path: ~/Code/penumbra-poc
-    tags: [python, pipeline, github-issues]
+    tags: [python, pipeline, declarative-input, github-issues]
+    baseline_version: "2026-04-13"
     description: Log hidden-side completion POC — laser scanning, edge ML, Corley/Lewis
     domains: [manufacturing, ML, scanning]
 

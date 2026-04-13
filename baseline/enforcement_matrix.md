@@ -14,7 +14,7 @@ Maps each coding guideline section to its enforcement mechanism. Use this to und
 | **STRUCTURAL Invariant** | Manual check before migrations | Cross-file coordination issues |
 | **Hook (Lint)** | Every Edit/Write | Style, syntax, simple patterns |
 | **Hook (Custom)** | Every Edit/Write | Project-specific rules |
-| **Skill Review** | `/review` or `/audit` invocation | Architectural drift, convention violations |
+| **Skill Review** | `/review` invocation | Architectural drift, convention violations |
 | **Convention** | Code review, PR process | Subjective quality, naming, structure |
 
 ---
@@ -37,19 +37,19 @@ Maps each coding guideline section to its enforcement mechanism. Use this to und
 | 4 | No Silent Drops | **Invariant** | Global: NO_SILENT_DROPS (HARD) | Unsupported features must error or warn |
 | 5 | Flat Type Systems | **Conditional** | DS-4 if project commits to flat IR | Decision point in bootstrap |
 | 5 | Propagation via Params | **Convention** | — | Design pattern |
-| 6 | Test at Right Level | **Skill Review** | `/audit` checks test structure | Not system-breaking |
+| 6 | Test at Right Level | **Skill Review** | `/review` checks test structure | Not system-breaking |
 | 6 | Test Project Code | **Skill Review** | `/review` flags language-feature tests | — |
-| 6 | No Duplicate Coverage | **Skill Review** | `/audit` finds redundant tests | — |
+| 6 | No Duplicate Coverage | **Skill Review** | `/review` finds redundant tests | — |
 | 6 | Semantic Equivalence | **Convention** | — | Test design guidance |
 | 6 | Use Test Framework | **Hook (Lint)** | Ruff flags `if __name__` in test files | — |
 | 7 | Single Unit System | **Invariant** | CS-1: SINGLE_UNIT (HARD) | Mixed units produce wrong output |
 | 7 | Coordinate Spaces | **Invariant** | CS-2: COORDINATE_CLARITY (STRUCTURAL) | Document and track transforms |
-| 8 | Document Defaults | **Skill Review** | `/audit` checks for default inventory | Process, not code |
+| 8 | Document Defaults | **Skill Review** | `/review` checks for default inventory | Process, not code |
 | 8 | Changing Defaults | **Invariant** | CFG-1: DEFAULT_AGREEMENT (STRUCTURAL) | Defaults must agree across locations |
 | 8 | Policy vs Invariant | **Convention** | — | Labeling guidance |
 | 9 | Validate at Construction | **Invariant** | DS-5: VALIDATE_CONSTRUCTION (HARD) | Constraints enforced in `__post_init__` |
 | 9 | Validate at Boundaries | **Invariant** | Global: BOUNDARY_VALIDATION (HARD) | Input validation at system edges |
-| 9 | Constraint Auditing | **Skill Review** | `/audit` checks for audit summaries | — |
+| 9 | Constraint Auditing | **Skill Review** | `/review` checks for audit summaries | — |
 | 10 | Invariant Classification | **Convention** | — | Meta: how to write invariants |
 | 10 | Document Per Subsystem | **Convention** | — | Meta |
 | 10 | Amendment Process | **Invariant** | META: AMENDMENT_REQUIRED (HARD) | Changes and amendments same commit |

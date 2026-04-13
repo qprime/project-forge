@@ -82,11 +82,10 @@ Create:
 2. **`.claude/commands/engineer.md`** — domain-framed implementation skill
 3. **`.claude/commands/debug.md`** — domain-framed debugging skill
 4. **`.claude/commands/spec.md`** — specification drafting
-5. **`.claude/commands/architect.md`** — architectural review
-6. **`.claude/commands/audit.md`** — audit with project context
-7. **`.claude/commands/review.md`** — code review
-8. **`.claude/commands/close-out.md`** — verification + commit
-9. **`docs/invariants/README.md`** — scaffold for project invariants
+5. **`.claude/commands/architect.md`** — design thinking partner
+6. **`.claude/commands/review.md`** — code, spec, and system review
+7. **`.claude/commands/close-out.md`** — verification + commit
+8. **`docs/invariants/README.md`** — scaffold for project invariants
 
 ### Step 6: Commit
 Stage all created files, commit with structured message. If remote target, prompt to push.

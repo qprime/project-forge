@@ -37,6 +37,7 @@ Gather information from the project:
    - `CLAUDE.md` — persona, capabilities, invariants, conventions
    - `.claude/commands/*.md` — skills and their descriptions
    - `docs/invariants/` — invariant definitions
+   - **Personas** — extract the project-owned persona paragraph from skill files (look for `<!-- PERSONA:` comment blocks in `architect.md`, domain framing in `engineer.md`). These are project-owned and evolve independently from the baseline template.
 
 2. **Structure:**
    - Top-level directory layout
@@ -73,6 +74,13 @@ configuration:
   has_invariants: true/false
   skills: [list of skill names]
   tags: [inferred tags]
+
+personas:
+  architect: |
+    Current persona paragraph from .claude/commands/architect.md
+    (the project-owned PERSONA section, not the template structure)
+  engineer: |
+    Current persona/domain framing from .claude/commands/engineer.md
 
 structure:
   language: Python 3.x / TypeScript / etc.

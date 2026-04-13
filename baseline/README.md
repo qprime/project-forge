@@ -556,8 +556,8 @@ Complete list of files created during bootstrap, with purpose:
 | `.claude/hooks/lint-<lang>.sh` | Post-edit linting — enforces code style automatically | 30 |
 | `.claude/commands/operator.md` | Primary implementation persona | 50-80 |
 | `.claude/commands/debug.md` | Root-cause investigation persona | 40-60 |
-| `.claude/commands/audit.md` | Read-only architectural analysis | 60-170 |
-| `.claude/commands/review.md` | Code/change review | 40-60 |
+| `.claude/commands/architect.md` | Design thinking partner — tradeoffs, approach evaluation | 50-80 |
+| `.claude/commands/review.md` | Code, spec, and system review with structured findings | 80-170 |
 | `.claude/commands/close-out.md` | Post-implementation verification + commit | 60-110 |
 | `.claude/commands/check-invariants.md` | Invariant loader before subsystem changes | 30-40 |
 | `.claude/commands/glossary.md` | Terminology reference | 30-60 |

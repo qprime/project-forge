@@ -35,11 +35,12 @@ Show project ecosystem status for: $ARGUMENTS
 
 ### Projects
 
-| Project | Path | Baseline | Profile | Status |
-|---------|------|----------|---------|--------|
-| mill_ui | ~/Code/mill_ui | 2026-04-05 | Fresh | OK |
-| homenet | ~/Code/homenet | — | None | NO BASELINE |
-| turnstile | (no path) | — | None | REMOTE ONLY |
+| Project | Path | Baseline | Profile | Targets | Status |
+|---------|------|----------|---------|---------|--------|
+| mill_ui | ~/Code/mill_ui | 2026-04-05 | Fresh | claude | OK |
+| homenet | ~/Code/homenet | — | None | claude | NO BASELINE |
+| project-forge | ~/Code/project-forge | — | None | claude, codex | CODEX STALE |
+| turnstile | (no path) | — | None | claude | REMOTE ONLY |
 
 ### Health (FG-6)
 - OK: <N> projects with valid paths
@@ -65,6 +66,7 @@ Show project ecosystem status for: $ARGUMENTS
 - repo: <repo>
 - path: <path> (exists: yes/no)
 - tags: [list]
+- targets: [list] (default: [claude])
 - baseline_version: <version>
 - description: <description>
 - domains: [list]
@@ -78,10 +80,17 @@ Show project ecosystem status for: $ARGUMENTS
 - Skills: <N>/<expected>
 - Capabilities: <N>/<expected>
 
+**Codex sync:** CURRENT / STALE / MISSING / N/A
+- AGENTS.md: <status>
+- Skills: <N>/<expected>
+- config.toml: <status>
+(Only shown for projects with `targets` including `codex`)
+
 **Recommended actions:**
 - /survey <project> — update profile
 - /drift <project> — check baseline divergence
 - /rebase <project> — sync with baseline
+- /codex-sync <project> — regenerate Codex files (if targets include codex)
 ```
 
 ### Health Check Mode (`--health`)

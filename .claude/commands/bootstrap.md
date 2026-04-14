@@ -91,7 +91,7 @@ Create:
 Stage all created files, commit with structured message. If remote target, prompt to push.
 
 ### Step 7: Summary
-Report files created, tags, capabilities selected, commit hash.
+Report files created, tags, capabilities selected, commit hash. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to generate Codex equivalents.
 
 ---
 
@@ -117,7 +117,7 @@ Preserve project-specific sections. Update capability-derived sections. Present 
 After user confirms, write files, stage specific files, commit.
 
 ### Step 6: Summary
-Report files updated/unchanged, preserved content, overrides maintained.
+Report files updated/unchanged, preserved content, overrides maintained. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to regenerate Codex files.
 
 ---
 

@@ -43,6 +43,6 @@ Examples:
 
 ## After Rebase
 
-Updates `registry/projects.yaml` with the new `baseline_version` for the project.
+Updates `registry/projects.yaml` with the new `baseline_version` for the project. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to regenerate Codex files.
 
 See `/bootstrap` for the full rebase workflow details.

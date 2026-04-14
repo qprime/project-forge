@@ -1,6 +1,6 @@
 # project-forge
 
-Cross-project intelligence system, bootstrap orchestrator, and change monitoring service. Owns the capability baseline that all projects bootstrap from, maintains a registry of projects and their configurations, and provides cross-project analysis — pattern extraction, drift detection, change monitoring, and knowledge publishing. Reads other projects to learn from them; writes to them only during bootstrap and rebase operations. Watches how projects change over time and generalizes patterns into baseline candidates.
+Cross-project intelligence system, bootstrap orchestrator, and change monitoring service. Owns the capability baseline that all projects bootstrap from, maintains a registry of projects and their configurations, and provides cross-project analysis — pattern extraction, drift detection, change monitoring, and knowledge publishing. Reads other projects to learn from them; writes to them only during bootstrap, rebase, and codex-sync operations. Watches how projects change over time and generalizes patterns into baseline candidates.
 
 ## Tags
 
@@ -50,7 +50,7 @@ See `docs/invariants/global.md` for full definitions.
 | FG-1 | Registry-is-Truth | HARD | `registry/projects.yaml` is the single source of truth |
 | FG-2 | Baseline-Canonical | HARD | `baseline/` files are canonical — consumers never modify |
 | FG-3 | Survey-Derived | STRUCTURAL | Profiles from `/survey` are derived, never manually edited |
-| FG-4 | Read-Before-Write | HARD | Reads freely; writes only during `/bootstrap` or `/rebase` with approval |
+| FG-4 | Read-Before-Write | HARD | Reads freely; writes only during `/bootstrap`, `/rebase`, or `/codex-sync` with approval |
 | FG-5 | Self-Bootstrap | STRUCTURAL | Bootstrappable from cold start using only own baseline |
 | FG-6 | No-Stale-Pointers | POLICY | All registry paths/refs must resolve; `/status` detects broken ones |
 | FG-7 | Monitor-Proposes | HARD | `/monitor` proposes changes, never auto-applies — human decides what gets codified |

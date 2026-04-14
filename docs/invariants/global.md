@@ -32,7 +32,7 @@ Project profiles produced by `/survey` are derived from reading live project sta
 
 **Classification:** HARD
 
-Forge reads other projects freely. It writes to other projects only during explicit `/bootstrap` or `/rebase` operations, and only with user approval.
+Forge reads other projects freely. It writes to other projects only during explicit `/bootstrap`, `/rebase`, or `/codex-sync` operations, and only with user approval.
 
 ---
 

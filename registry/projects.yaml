@@ -106,5 +106,6 @@ projects:
     repo: qprime/project-forge
     path: ~/Code/project-forge
     tags: [python, github-issues, infrastructure, bootstrap-source]
+    targets: [claude, codex]
     description: Cross-project intelligence, bootstrap orchestration, capability baseline
     domains: [meta, bootstrapping, project management]

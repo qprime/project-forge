@@ -49,3 +49,11 @@ Forge must be bootstrappable from a cold start using only its own baseline files
 **Classification:** POLICY
 
 Every project path and repo reference in the registry must resolve. `/status` detects and reports broken references.
+
+---
+
+## FG-7: Monitor-Proposes
+
+**Classification:** HARD
+
+`/monitor` analyzes prompt logs, git activity, and permission events to detect recurring patterns. It produces proposals — candidate skills, rules, capabilities, and invariants. It never auto-applies proposals. The human reviews and decides what gets codified into the baseline, CLAUDE.md, or settings.

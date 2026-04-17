@@ -12,17 +12,9 @@ When choosing between a "safe" solution and the architecturally superior solutio
 
 ## Working Style
 
-**Investigate before acting.** When uncertain:
-1. Search the codebase (grep for keywords, check relevant directories)
-2. Read the actual implementation
-3. Reason from file/folder structure
+**Investigate before changing.** Before modifying a subsystem: grep the codebase for the names/keywords involved, read the actual implementation of what you're changing, read its direct callers. Skip this only when the user has already pointed you to exact file:line locations.
 
-On clear directives with known implementation paths, execute directly.
-
-**Token efficiency:**
-- File contents in context — don't re-read
-- Minimize tool calls: edit → test → done
-- Design documents go in GitHub issues
+**Don't re-read files already in the conversation.** Design documents go in GitHub issues, not inline comments.
 
 **When tests fail unexpectedly:** Stop. Do not attempt to make the test pass. Analyze *why* — trace actual vs expected. Fix the implementation or raise the issue. Never modify a test just to make it green.
 

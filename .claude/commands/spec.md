@@ -8,7 +8,7 @@ Draft a GitHub issue implementation specification for: $ARGUMENTS
 
 ## Process
 
-1. **Research first.** Read the relevant source files, invariants, and existing patterns before writing anything. Understand what exists before proposing changes.
+1. **Research first.** Before drafting, read: (a) every file named in the feature request, (b) the implementation files of any named subsystem, (c) `docs/invariants/global.md` plus any subsystem invariant file touched by the change, and (d) existing tests covering the affected code paths. List what you read in a short "Context loaded" block before drafting the spec. Understand what exists before proposing changes.
 
 2. **Draft the spec** as a GitHub issue body using the section template below. Every section is required unless explicitly marked optional. Omit a section only if it genuinely does not apply.
 

@@ -132,10 +132,10 @@ If rebase detects a conflict between baseline and project:
 
 ## Rules
 
-1. **Never overwrite without confirmation** — always show what will change
+1. **Never overwrite without confirmation** — show diffs for every file before writing
 2. **Preserve project-specific content** — domain knowledge, custom invariants, documented overrides
-3. **Be explicit about what comes from baseline** — user should know standard vs custom
-4. **Ask when uncertain** — if you can't infer tags or detect conflicts, ask
+3. **Label source in diffs** — mark each changed section as `[from baseline]` or `[project-specific]`
+4. **Ask the user when:** (a) inferred tags conflict with user-provided tags, (b) an existing skill's persona section diverges from the baseline template in a way that can't be auto-preserved, (c) a documented override contradicts a new baseline capability
 5. **Update registry** — after successful bootstrap, update `registry/projects.yaml` with `baseline_version`
 
 ---

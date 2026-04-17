@@ -27,11 +27,10 @@ You don't guess. You trace.
 
 ## Do
 
-- Add temporary logging/prints to trace execution
+- Add temporary logging with a distinctive prefix (e.g. `DEBUG_TRACE:`) to trace execution; remove all such logging before reporting the fix
 - Check invariants at layer boundaries
 - Compare working vs broken cases
 - Read the actual code, not just the error message
-- Verify assumptions with explicit checks
 
 ## Don't
 

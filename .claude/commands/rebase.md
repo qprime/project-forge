@@ -30,9 +30,10 @@ Examples:
 1. Reads the project's current CLAUDE.md, skills, and invariants
 2. Infers current tags from existing configuration
 3. Compares current skills against the current capability baseline
-4. Proposes updates — preserving project-specific content and documented overrides
-5. Presents diffs for approval before writing
-6. Commits and optionally pushes
+4. **Prompt-quality drift analysis** — for each project-specific skill section preserved during rebase, scan for the same prompting anti-patterns the baseline has been cleaned of: vague verbs ("relevant", "appropriate", "if configured"), mitigation scaffolding ("make sure", "don't forget", "double-check", "remember to"), and conditional work that 4.7-class models interpret narrowly ("when uncertain", "if tests exist"). Report each hit with file:line and propose a concrete replacement. Present as a separate section in the rebase diff so the user can accept the baseline sync and the drift fixes independently.
+5. Proposes updates — preserving project-specific content and documented overrides
+6. Presents diffs for approval before writing
+7. Commits and optionally pushes
 
 ## What This Does NOT Do
 

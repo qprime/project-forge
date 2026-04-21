@@ -102,6 +102,14 @@ projects:
     description: SDB auditor
     domains: [AI, auditing]
 
+  relay:
+    repo: qprime/relay
+    path: ~/Code/relay
+    tags: [python, async, pipeline, declarative-input, github-issues]
+    baseline_version: "2026-04-05"
+    description: Intent-driven PLC simulation — NL intent → ST function blocks → multi-PLC sim → trace verification
+    domains: [control systems, simulation, IEC 61131-3]
+
   project-forge:
     repo: qprime/project-forge
     path: ~/Code/project-forge

@@ -117,3 +117,11 @@ projects:
     targets: [claude, codex]
     description: Cross-project intelligence, bootstrap orchestration, capability baseline
     domains: [meta, bootstrapping, project management]
+
+  image-forge:
+    repo: qprime/image-forge
+    path: ~/Code/image-forge
+    tags: [python, github-issues]
+    baseline_version: "2026-04-05"
+    description: Generate stylized images via GPT Image 2 and enhance into CAM-ready 16-bit heightmaps
+    domains: [image generation, CAM preprocessing]

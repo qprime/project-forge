@@ -125,6 +125,18 @@ Selected based on project tags. Some have dependencies on other capabilities.
 - No pass-through of computed data through semantic layers
 - Deterministic output — same input produces identical output
 
+### Single-Writer-Discipline `[pipeline]`
+
+*One canonical writer per artifact type.*
+
+**Requires:** Pipeline-Discipline
+
+- Each serialized artifact type has exactly one canonical writer function
+- All code paths — CLI, tests, regen, batch — must call it
+- The writer owns filename and layout; callers pass data only
+- Any other path that writes this artifact type is a defect
+- Test fixtures must be regenerable via the canonical writer (no hand-maintained goldens that drift from writer output)
+
 ### Declarative-Input-First `[declarative-input]`
 
 *Features must be expressible in the input language.*
@@ -251,8 +263,8 @@ Selected based on project tags. Some have dependencies on other capabilities.
 Immutability-Discipline
         ↑
 Pipeline-Discipline
-        ↑
-Declarative-Input-First
+        ↑        ↖
+Declarative-Input-First   Single-Writer-Discipline
 
 Infrastructure-Safety ← Tool-Codification (ops become tools)
 
@@ -283,6 +295,7 @@ Skills are built from capabilities. The translation layer selects capabilities a
 **Conditionally includes:**
 - Immutability-Discipline `[python]`
 - Pipeline-Discipline `[pipeline]`
+- Single-Writer-Discipline `[pipeline]`
 - Declarative-Input-First `[declarative-input]`
 - Infrastructure-Safety `[infrastructure]`
 - Tool-Codification `[infrastructure]`
@@ -369,6 +382,7 @@ Skills are built from capabilities. The translation layer selects capabilities a
 - Minimal-Diff (recognize elegant patterns)
 
 **Conditionally includes:**
+- Single-Writer-Discipline `[pipeline]` (writer uniqueness, fixture regenerability)
 - GitHub-Integration `[github-issues]` (post review summary, audit context persistence)
 - Document-Integrity `[doc-corpus]` (cross-reference validation, ADI compliance)
 - Voice-Enforcement `[doc-corpus]` (prohibited language detection, claim-type audit)

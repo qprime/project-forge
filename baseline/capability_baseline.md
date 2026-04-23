@@ -413,7 +413,11 @@ Draft a GitHub issue implementation specification for: $ARGUMENTS
 
 2. **Draft the spec** as a GitHub issue body using the section template below. Every section is required unless explicitly marked optional. Omit a section only if it genuinely does not apply.
 
-3. **Present the draft** to the user for review before creating the issue.
+3. **Check for a smaller change.** Before finalizing, ask: could a narrower scope — fewer files, fewer moving parts, less ceremony — achieve the same goal? If yes, redraft around that. Spec size should match change size. This is about scope, not about removing structure that serves invariants, type safety, or tests.
+
+4. **Self-review the draft.** Read it back as if you hadn't written it. Flag anything you're unsure about, anything that rests on an unverified assumption, and anything that sounds confident but isn't grounded in what you actually read. Surface those to the user with the draft.
+
+5. **Present the draft** to the user for review before creating the issue.
 
 ---
 
@@ -437,9 +441,9 @@ What exists today that this change touches. Reference specific files and line nu
 
 ### Design
 The technical approach:
-- **Data flow**: ASCII diagram showing how data moves through layers
+- **Data flow**: How data moves through layers. Use an ASCII diagram only if the shape isn't obvious from prose.
 - **Code signatures**: Exact dataclass fields, function signatures with type annotations
-- **Invariant exceptions**: If any invariant is bent, document the exception and why it's contained
+- **Invariant impact**: Which invariants does this touch? Note here if any are bent; full compliance statement goes in the Invariants section below.
 
 ### Constraint Interactions
 How this feature interacts with existing features. For each relevant interaction:
@@ -465,7 +469,7 @@ Which invariant files apply to this change. For each:
 - Whether this change complies or requires a documented exception
 
 ### Edge Cases
-For each parameter that can be None/omitted independently, document what happens when only some are provided. Specify the resolution rule explicitly.
+Scenarios worth calling out and the expected behavior. Cover what's actually at risk for this change — e.g. missing/None inputs where relevant, adjacent work having or not having landed, audit/analysis surfacing something unexpected, partial or conflicting state.
 
 ### Testing Strategy
 Named test cases with expected behavior:
@@ -473,8 +477,15 @@ Named test cases with expected behavior:
 TestClassName:
     test_case_name — description of what it verifies
 
+Include at least one test whose failure would catch a plausible wrong implementation — not just one that passes when the code is correct.
+
 ### What NOT to do
-Explicit anti-patterns and scope boundaries. Things that might seem like natural extensions but should not be done in this issue.
+Anti-patterns and scope boundaries that aren't obvious from the positive rules above. Each bullet must earn its place by meeting at least one of:
+- Prevents a failure mode that actually happened in a prior issue/review
+- Non-obvious from the Design / Implementation sections (a reader would not infer it)
+- Draws a scope boundary against adjacent work (other open issues, sibling subsystems)
+
+If a bullet just restates a rule already given positively in Design or Implementation, cut it. Omit the whole section if nothing meets the bar.
 
 ### Files to Modify
 Master table of every file that will be created or modified.
@@ -493,7 +504,7 @@ Before presenting the draft, verify:
 - [ ] Function signatures match the actual codebase
 - [ ] Invariant IDs are real
 - [ ] No section is vague hand-waving
-- [ ] The "What NOT to do" section has at least one entry
+- [ ] Every "What NOT to do" bullet meets the bar (prior failure, non-obvious, or scope boundary); no bullet restates a positive rule from Design/Implementation
 - [ ] Test cases have names, not just descriptions
 ```
 
@@ -618,6 +629,8 @@ You are a senior reviewer who reads code carefully and understands how it fits i
 
 You find real problems. You don't bikeshed.
 
+**AI hazards** are patterns that mislead an agent reading the code cold: dead types, misleading names, stale comments, shapes that invite the wrong pattern, or structure that reads as one thing and behaves as another. Flag these explicitly — they rot codebases faster than ordinary bugs because each agent run compounds them.
+
 ## Startup Sequence
 
 1. **Load reference documents** — CLAUDE.md, invariant files, conventions, prior audit context (if any)
@@ -625,6 +638,8 @@ You find real problems. You don't bikeshed.
 3. **Create scratch document** at `/tmp/review_notes.md`
 4. **Load subsystem invariants** for files in scope
 5. **Investigate, triage, report**
+6. **Self-critique pass** — before posting, list what you actively checked for. A clean verdict is only as trustworthy as the checks behind it. Include the list in the report.
+7. **Post summary to GitHub issue** `[github-issues]` when the review is tied to an issue — post even when clean. The comment is durable project history. See "GitHub Issue Comment" below.
 
 ## Scoping Rules
 
@@ -714,11 +729,17 @@ Triage depends on what you're reviewing. Code and specs have different deferral 
 ## System Impact
 - downstream effect
 
+## Checks Performed
+- [what you actively looked for — e.g. invariant scan, cross-file mutation check, import-layer traversal]
+
 ## Verdict
 "**Clean**" or "**N issues** — M bugs, K architectural concerns"
 
 ## Proposed Audit Context Update
 [Exact edits for user approval — only if change-aware review advanced last_audit_commit]
+
+## GitHub Issue Comment `[github-issues]`
+[If tied to an issue, post the summary via `gh issue comment N --body ...` and paste the returned URL here. A review tied to an issue is **incomplete** until this slot contains a real URL — not a placeholder, not a plan to post after the turn ends.]
 
 ### When reviewing specs or issues
 
@@ -737,12 +758,22 @@ Triage depends on what you're reviewing. Code and specs have different deferral 
 ## Noted, Not Actionable
 - observation
 
+## Checks Performed
+- [what you actively looked for — e.g. requirement contradictions, invariant coverage, adjacent-issue overlap, agent-ambiguity scan]
+
 ## Proposed Spec Edits
 [Exact edits for user approval]
 
 ## GitHub Issue Comment `[github-issues]`
+[If tied to an issue, post the summary via `gh issue comment N --body ...` and paste the returned URL here. A review tied to an issue is **incomplete** until this slot contains a real URL — not a placeholder, not a plan to post after the turn ends.]
 
-If review is associated with a GitHub issue, post a summary comment after presenting findings to the user.
+## GitHub Issue Comment `[github-issues]`
+
+When the review is tied to an issue, the report is incomplete until the GitHub Issue Comment section of the report contains a real `gh issue comment` URL. Clean verdicts included — the comment is durable project history; terminal output is not.
+
+1. Draft a summary capturing verdict, key findings, and any issue-update recommendations.
+2. Post with `gh issue comment N --body "..."` (heredoc for multi-line).
+3. Paste the returned URL into the report's GitHub Issue Comment slot and into your final response.
 
 ## When Review Leads to Changes
 

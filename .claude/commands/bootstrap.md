@@ -87,11 +87,39 @@ Create:
 7. **`.claude/commands/close-out.md`** — verification + commit
 8. **`docs/invariants/README.md`** — scaffold for project invariants
 
-### Step 6: Commit
+### Step 6: Verify Artifacts (REQUIRED — do not skip)
+
+Before committing, confirm every artifact from Step 5 exists on disk. Run the bootstrap checklist below. If any item fails, fix it — do not proceed to commit with a partial bootstrap.
+
+**Bootstrap Artifact Checklist:**
+
+| # | Path | Required Content |
+|---|------|------------------|
+| 1 | `CLAUDE.md` | persona, capabilities table, invariant references, Don't section |
+| 2 | `.claude/commands/engineer.md` | domain-framed, references project-specific files |
+| 3 | `.claude/commands/debug.md` | domain-framed |
+| 4 | `.claude/commands/spec.md` | matches baseline spec template |
+| 5 | `.claude/commands/architect.md` | persona section filled in (no `[DOMAIN_*]` placeholders) |
+| 6 | `.claude/commands/review.md` | matches baseline review template |
+| 7 | `.claude/commands/close-out.md` | verification + commit phases |
+| 8 | `docs/invariants/README.md` | scaffold explaining invariant convention for this project |
+
+**Verification commands** (run these — don't trust your memory of what you wrote):
+
+```
+ls CLAUDE.md .claude/commands/{engineer,debug,spec,architect,review,close-out}.md docs/invariants/README.md
+grep -L 'DOMAIN_EXPERTISE\|DOMAIN_PERSPECTIVE\|DOMAIN_MENTAL_MODELS' .claude/commands/architect.md
+```
+
+The `ls` must show all 8 files. The `grep -L` must list `architect.md` (meaning no unfilled placeholders remain). If either check fails, fix the gap and re-verify before continuing.
+
+Report the checklist result inline — one line per item, ✓ or ✗. The user can see whether bootstrap actually completed or stopped halfway.
+
+### Step 7: Commit
 Stage all created files, commit with structured message. If remote target, prompt to push.
 
-### Step 7: Summary
-Report files created, tags, capabilities selected, commit hash. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to generate Codex equivalents.
+### Step 8: Summary
+Report files created, tags, capabilities selected, commit hash, **and the Step 6 checklist result**. If any artifact was skipped or failed verification, surface it explicitly — do not bury it. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to generate Codex equivalents.
 
 ---
 
@@ -113,11 +141,17 @@ Compare current skills against baseline:
 ### Step 4: Generate Updates
 Preserve project-specific sections. Update capability-derived sections. Present diffs before applying.
 
-### Step 5: Apply and Commit
-After user confirms, write files, stage specific files, commit.
+### Step 5: Apply
+After user confirms, write files. Do not commit yet.
 
-### Step 6: Summary
-Report files updated/unchanged, preserved content, overrides maintained. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to regenerate Codex files.
+### Step 6: Verify Artifacts (REQUIRED)
+Run the same Bootstrap Artifact Checklist from the new-project mode (Step 6 above). Rebase must leave the project in a fully-bootstrapped state — if a baseline file was missing before rebase, it should be present after. Report the checklist result inline.
+
+### Step 7: Commit
+Stage specific files, commit.
+
+### Step 8: Summary
+Report files updated/unchanged, preserved content, overrides maintained, **and the checklist result**. If the project's `targets` include `codex`, remind the user to run `/codex-sync <project>` to regenerate Codex files.
 
 ---
 

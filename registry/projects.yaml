@@ -125,3 +125,9 @@ projects:
     baseline_version: "2026-04-05"
     description: Generate stylized images via GPT Image 2 and enhance into CAM-ready 16-bit heightmaps
     domains: [image generation, CAM preprocessing]
+
+  applied-math-ml:
+    path: ~/Code/KBs/applied-math-ml
+    tags: [study, notes-first, no-codebase]
+    description: Personal study notes — applied math taxonomy, ML pattern map, linear algebra foundations. Diagnostic-intuition focus.
+    domains: [study, applied math, machine learning]

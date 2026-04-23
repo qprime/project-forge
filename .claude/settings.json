@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "additionalDirectories": [
+      "/home/squinlan/Code/relay/relay/runtime",
+      "/home/squinlan/Code/relay/relay/verify",
+      "/home/squinlan/Code/relay/relay/plant",
+      "/home/squinlan/Code/relay/relay/st",
+      "/home/squinlan/Code/relay/relay/spec",
+      "/home/squinlan/Code/relay/relay/generator",
+      "/home/squinlan/Code/relay/specs",
+      "/home/squinlan/Code/relay/tests",
+      "/home/squinlan/Code/relay",
+      "/home/squinlan/Code/image-forge",
+      "/home/squinlan/Code/Study/applied-math-ml",
+      "/home/squinlan/Code/Study"
+    ]
+  }
+}

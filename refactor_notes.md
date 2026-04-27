@@ -237,7 +237,7 @@ Work through in order. Each step depends on the ones above it.
 
 - [x] **1. Pin pattern declaration.** Define the file format, location, and contents of a project's pattern declaration. Unblocks the resolver. _(issue #6 — schema v1 + manifest loader)_
 - [x] **2. Spec the resolver.** Pseudocode for: read pattern declaration → walk template → fill placeholders from pattern + project layers → emit final file. Cover the multi-pattern case. _(issue #7 — resolver v1; secondaries warn-and-ignore in v1)_
-- [ ] **3. Build resolver against forge itself.** Forge dogfoods — the resolver should produce forge's own skill files from the layered artifacts. v1 status: the resolver runs against forge's manifest, but most global templates still carry required (un-defaulted) slots, so the dogfood is currently a **negative** test (asserts the expected `ResolverError`). Flips to positive once the remaining global slots are migrated to inline-default form (follow-up #8) or filled by a project layer.
+- [x] **3. Build resolver against forge itself.** Forge dogfoods — the resolver produces forge's own skill files from the layered artifacts. Project-layer contributions live in `.claude/commands/<skill>.custom.md` (#10); the dogfood test is now a positive assertion that resolution returns non-empty composed text for every global skill with no leftover placeholders. #11 will write the resolved output to disk.
 - [ ] **4. Bootstrap one external consumer.** mill_ui or relay. Exercises the project-layer customization step and surfaces the customization prompt's real failure modes.
 - [ ] **5. Address deferred questions.** Publishing shape, multi-pattern conflict rules, input-spec fidelity, domain axis for invariants/skills. Tractable only once mechanism exists.
 

@@ -9,6 +9,8 @@ import yaml
 
 from forge.manifest import Manifest, load_manifest
 from forge.resolver import (
+    INSERT_RE,
+    PLACEHOLDER_RE,
     SLOT_INSERT_HEADER_RE,
     ResolverError,
     _fence_regions,
@@ -108,6 +110,77 @@ def _build_manifest(
     for n, s in secondaries:
         (project_root / s).mkdir(parents=True, exist_ok=True)
     return manifest_path
+
+
+# ---------------------------------------------------------------------------
+# Forge dogfood (positive — FG-5 self-bootstrap)
+# ---------------------------------------------------------------------------
+
+
+def _authored_probes(contribution_path: Path) -> list[tuple[str, str, str]]:
+    """Read a contribution file and return (kind, name, probe) tuples for each
+    declared slot/insert. The probe is the first non-blank line of the body as
+    authored — independent of how the resolver parses block boundaries. If the
+    composed skill is missing the probe, content was lost during composition."""
+    if not contribution_path.is_file():
+        return []
+    text = contribution_path.read_text(encoding="utf-8")
+    fences = _fence_regions(text)
+    headers = [
+        m for m in SLOT_INSERT_HEADER_RE.finditer(text)
+        if not _in_fence(m.start(), fences)
+    ]
+    out: list[tuple[str, str, str]] = []
+    for i, match in enumerate(headers):
+        kind, name = match.group(1), match.group(2)
+        body_start = match.end()
+        body_end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        body = text[body_start:body_end].strip()
+        if not body:
+            continue
+        probe = body.splitlines()[0].strip()
+        if probe:
+            out.append((kind, name, probe))
+    return out
+
+
+def test_forge_dogfood_resolves_cleanly():
+    """Forge resolves itself cleanly against its own baseline (FG-5).
+
+    The expected skill set is derived from `skills/global/*.md` so adding a
+    new global skill without a matching forge contribution surfaces here.
+    Every composed skill must be non-empty, contain no leftover slot
+    placeholders or insert markers, and contain every authored slot/insert
+    body. The body-presence check is what makes the dogfood positive: a
+    contribution whose content is silently dropped during composition fails
+    here even though the structural checks pass."""
+    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
+    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=REPO_ROOT)
+
+    expected = {
+        f.stem
+        for f in (REPO_ROOT / "skills" / "global").glob("*.md")
+        if "." not in f.stem
+    }
+    assert set(out.skills.keys()) == expected
+
+    project_skills_dir = REPO_ROOT / manifest.resolution.skills_dir
+
+    for name, body in out.skills.items():
+        assert body, f"composed skill {name!r} is empty"
+        assert PLACEHOLDER_RE.search(body) is None, (
+            f"composed skill {name!r} still has slot placeholders"
+        )
+        assert INSERT_RE.search(body) is None, (
+            f"composed skill {name!r} still has insert markers"
+        )
+        for kind, slot_name, probe in _authored_probes(
+            project_skills_dir / f"{name}.custom.md"
+        ):
+            assert probe in body, (
+                f"composed {name!r}: {kind} {slot_name!r} authored content "
+                f"missing — probe {probe!r} not found in output"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -529,6 +602,30 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
     assert "prose" in skill
     assert "## Implementation Summary" in skill
     assert "tail prose" in skill
+
+
+def test_authored_probes_is_fence_aware(tmp_path: Path):
+    """The dogfood oracle (`_authored_probes`) must agree with the parser on
+    what counts as a slot/insert header. A `## slot:` or `## insert:` line
+    inside a fence is content, not a header — the oracle must skip it, or it
+    will mis-extract probes from contributions that quote the grammar in
+    documentation."""
+    contribution = tmp_path / "fence-aware.md"
+    contribution.write_text(
+        "## insert: real_one\n\n"
+        "first body\n\n"
+        "```\n"
+        "## insert: quoted_in_fence\n\n"
+        "should not be treated as a header\n"
+        "```\n\n"
+        "## insert: real_two\n\n"
+        "second body\n",
+        encoding="utf-8",
+    )
+    probes = _authored_probes(contribution)
+    names = [name for _, name, _ in probes]
+    assert names == ["real_one", "real_two"]
+    assert "quoted_in_fence" not in names
 
 
 def test_resolved_project_is_frozen(tmp_path: Path):

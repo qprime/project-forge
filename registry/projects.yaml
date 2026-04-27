@@ -1,10 +1,16 @@
 # Project Registry — Single source of truth for project metadata (FG-1)
 # Managed by project-forge. Do not duplicate this data elsewhere.
+#
+# Discovery contract (per issue #6):
+#   - `path:` is mandatory for entries that have a manifest at <path>/.forge/manifest.yaml.
+#   - Entries without a manifest carry `manifest: none` as a sentinel; discovery skips them.
+#   - Entries are migrated off `manifest: none` as they are bootstrapped.
 
 projects:
   mill_ui:
     repo: qprime/mill_ui
     path: ~/Code/mill_ui
+    manifest: none
     tags: [python, pipeline, declarative-input, github-issues]
     baseline_version: "2026-04-05"
     description: CNC panel assembly UI — parametric joinery, PanelSpec model
@@ -13,6 +19,7 @@ projects:
   tennecnc_llc:
     repo: qprime/TenneCNC_LLC
     path: ~/Code/TenneCNC_LLC
+    manifest: none
     tags: [doc-corpus, multi-persona]
     baseline_version: "2026-04-05"
     description: Business docs — ADI taxonomy, whitepapers
@@ -21,6 +28,7 @@ projects:
   homenet:
     repo: qprime/homenet
     path: ~/Code/homenet
+    manifest: none
     tags: [infrastructure, python]
     description: Home network management — Linux, SSH, topology
     domains: [infrastructure, networking]
@@ -28,6 +36,7 @@ projects:
   cliff_ai:
     repo: qprime/cliff_ai
     path: ~/cliff_ai
+    manifest: none
     tags: [python]
     description: AI management/memory framework — personal/business AI orchestration
     domains: [AI, orchestration]
@@ -35,6 +44,7 @@ projects:
   infrastructure:
     repo: qprime/infrastructure
     path: ~/Code/infrastructure
+    manifest: none
     tags: [infrastructure, python]
     description: Linux/network utilities — home network, TenneCNC infrastructure
     domains: [infrastructure, networking]
@@ -42,6 +52,7 @@ projects:
   turnstile:
     repo: qprime/turnstile
     path: ~/Code/turnstile
+    manifest: none
     tags: [python]
     description: Carousel-based chat app — turn-focused content
     domains: [web, chat]
@@ -49,6 +60,7 @@ projects:
   artifact-assembler:
     repo: qprime/artifact-assembler
     path: ~/Code/artifact-assembler
+    manifest: none
     tags: [python]
     description: Deterministic discard-based context assembly
     domains: [AI, context management]
@@ -56,42 +68,49 @@ projects:
   SAK-router:
     repo: qprime/SAK-router
     path: ~/Code/SAK-router
+    manifest: none
     description: Router
     domains: [networking]
 
   session-manager:
     repo: qprime/session-manager
     path: ~/Code/session-manager
+    manifest: none
     description: Turn-based session manager
     domains: [session handling]
 
   orchestrator:
     repo: qprime/orchestrator
     path: ~/Code/orchestrator
+    manifest: none
     description: Orchestrator
     domains: [orchestration]
 
   artifact-engine:
     repo: qprime/artifact-engine
     path: ~/Code/artifact-engine
+    manifest: none
     description: Artifact engine
     domains: [AI]
 
   integration-tests:
     repo: qprime/integration-tests
     path: ~/Code/integration-tests
+    manifest: none
     description: Integration tests — infrastructure stack testing
     domains: [testing, infrastructure]
 
   artifact-classifier:
     repo: qprime/artifact-classifier
     path: ~/Code/artifact-classifier
+    manifest: none
     description: Profile-driven AI metadata/naming service — artifact storage prep
     domains: [AI, classification]
 
   penumbra-poc:
     repo: qprime/penumbra-poc
     path: ~/Code/penumbra-poc
+    manifest: none
     tags: [python, pipeline, declarative-input, github-issues]
     baseline_version: "2026-04-13"
     description: Log hidden-side completion POC — laser scanning, edge ML, Corley/Lewis
@@ -100,12 +119,14 @@ projects:
   sdb-auditor:
     repo: qprime/sdb-auditor
     path: ~/Code/sdb-auditor
+    manifest: none
     description: SDB auditor
     domains: [AI, auditing]
 
   relay:
     repo: qprime/relay
     path: ~/Code/relay
+    manifest: none
     tags: [python, async, pipeline, declarative-input, github-issues]
     baseline_version: "2026-04-05"
     description: Intent-driven PLC simulation — NL intent → ST function blocks → multi-PLC sim → trace verification
@@ -122,6 +143,7 @@ projects:
   image-forge:
     repo: qprime/image-forge
     path: ~/Code/image-forge
+    manifest: none
     tags: [python, github-issues]
     baseline_version: "2026-04-05"
     description: Generate stylized images via GPT Image 2 and enhance into CAM-ready 16-bit heightmaps
@@ -129,6 +151,7 @@ projects:
 
   applied-math-ml:
     path: ~/Code/KBs/applied-math-ml
+    manifest: none
     tags: [study, notes-first, no-codebase]
     description: Personal study notes — applied math taxonomy, ML pattern map, linear algebra foundations. Diagnostic-intuition focus.
     domains: [study, applied math, machine learning]

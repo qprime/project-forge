@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/qprime/project-forge/baseline/manifest.schema.json",
+  "title": "Forge Project Manifest",
+  "description": "Schema v1 for <project>/.forge/manifest.yaml. Pinned by issue #6.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "patterns",
+    "language",
+    "project_context",
+    "resolution"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "patterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary"],
+      "properties": {
+        "primary": {"type": "string", "minLength": 1},
+        "secondary": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "scope"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1},
+              "scope": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "domains": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "language": {"type": "string", "minLength": 1},
+    "python_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "test": {"type": ["string", "null"]},
+        "lint": {"type": ["string", "null"]},
+        "type_check": {"type": ["string", "null"]}
+      }
+    },
+    "axes": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "intent_translation": {"type": "string"},
+        "declarative_artifact": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "format": {"type": "string"},
+            "authorship": {"type": "string"},
+            "mutability": {"type": "string"}
+          }
+        },
+        "verification": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "position": {"type": "string"},
+            "consequence": {"type": "string"}
+          }
+        },
+        "state": {"type": "string"},
+        "contract_surface": {"type": "string"}
+      }
+    },
+    "project_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["description"],
+      "properties": {
+        "description": {"type": "string", "maxLength": 280, "minLength": 1},
+        "vocabulary": {"type": "array", "items": {"type": "string"}},
+        "load_bearing_subsystems": {"type": "array", "items": {"type": "string"}},
+        "invariant_sources": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["baseline_version", "skills_dir", "invariants_dir", "conventions_dir"],
+      "properties": {
+        "baseline_version": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "skills_dir": {"type": "string", "minLength": 1},
+        "invariants_dir": {"type": "string", "minLength": 1},
+        "conventions_dir": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

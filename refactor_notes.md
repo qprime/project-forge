@@ -223,7 +223,7 @@ This test is the operational form of the four-shapes test for invariants, applie
 
 Work through in order. Each step depends on the ones above it.
 
-- [ ] **1. Pin pattern declaration.** Define the file format, location, and contents of a project's pattern declaration. Unblocks the resolver.
+- [x] **1. Pin pattern declaration.** Define the file format, location, and contents of a project's pattern declaration. Unblocks the resolver. _(issue #6 — schema v1 + manifest loader)_
 - [ ] **2. Spec the resolver.** Pseudocode for: read pattern declaration → walk template → fill placeholders from pattern + project layers → emit final file. Cover the multi-pattern case.
 - [ ] **3. Build resolver against forge itself.** Forge dogfoods — if the resolver produces forge's own skill files from the layered artifacts, the mechanism works for the dogfooded case.
 - [ ] **4. Bootstrap one external consumer.** mill_ui or relay. Exercises the project-layer customization step and surfaces the customization prompt's real failure modes.

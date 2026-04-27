@@ -1,0 +1,52 @@
+schema_version: 1
+
+patterns:
+  primary: bootstrap-source
+
+domains: []
+
+language: python
+python_version: "3.12"
+toolchain:
+  test: pytest
+  lint: ruff
+  type_check: pyright
+
+axes:
+  intent_translation: present-llm-mediated
+  declarative_artifact:
+    format: yaml
+    authorship: human-only
+    mutability: mutable-current
+  verification:
+    position: pre-gate
+    consequence: block
+  state: mutable-current
+  contract_surface: structured-data
+
+project_context:
+  description: "Cross-project intelligence and bootstrap orchestrator. Owns the capability baseline, project registry, drift detection, and change monitoring."
+  vocabulary:
+    - registry
+    - baseline
+    - manifest
+    - resolver
+    - pattern
+    - domain
+    - drift
+    - rebase
+  load_bearing_subsystems:
+    - registry/
+    - baseline/
+    - skills/
+    - invariants/
+    - conventions/
+  invariant_sources:
+    - docs/invariants/
+    - invariants/
+
+resolution:
+  baseline_version: "2026-04-27"
+  skills_dir: .claude/commands/
+  invariants_dir: docs/invariants/
+  conventions_dir: docs/conventions/

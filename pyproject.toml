@@ -1,0 +1,21 @@
+[project]
+name = "project-forge"
+version = "0.1.0"
+description = "Cross-project intelligence and bootstrap orchestrator"
+requires-python = ">=3.12"
+dependencies = [
+  "pyyaml",
+  "jsonschema",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.setuptools.packages.find]
+include = ["forge*"]
+
+[tool.setuptools.package-data]
+forge = ["manifest.schema.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

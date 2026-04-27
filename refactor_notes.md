@@ -87,25 +87,27 @@ A project only includes the skills required by its pattern. Skill selection is n
 
 Two types:
 
-- **Slot** — single value. One layer fills it; the value replaces the placeholder.
+- **Slot** — single value. One layer fills it; the value replaces the placeholder. Optional inline default `{{NAME=default}}`: if no layer fills, the literal default is substituted; bare `{{NAME}}` is required and errors if unfilled.
   ```
   You are an architect for {{DOMAIN}}
+  Hand off to {{HANDOFF_TARGET=/spec}} when ready.
   ```
-- **Insertion** — list or block. Zero or more layers contribute; contributions stack.
+- **Insertion** — list or block. Zero or more layers contribute; contributions stack. HTML-comment form: `<!-- insert: NAME -->`.
   ```
   ## What You Do
-  {{DOMAIN_BULLETS}}
+  <!-- insert: domain-bullets -->
   ```
 
 Templates declare which type each placeholder is. Lower layers can only supply content of the right shape.
 
-For insertions with both pattern and project content: pattern first, project appended. Revisit once concrete cases force it.
+For insertions with both pattern and project content: pattern first, project appended, separated by one blank line. Pinned in #7.
+
+Pattern and project contributions are markdown files using `## slot: NAME` and `## insert: NAME` headers. A block runs to the next `## ` heading or EOF. Empty bodies fall through (pattern wins over an empty project block; there is no "fill with empty" form). Pinned in #7.
 
 ### Open
 
 - Placeholder granularity: section-level, bullet-level, or phrase-level. Current `architect.md` mixes all three. Needs a second skill worked through in detail before generalizing.
-- File format for pattern and project content. Deferred — shape before mechanism.
-- Projects declaring multiple patterns (e.g., `penumbra-poc` = Compiler + Declare-and-satisfy): ordering and conflict rules for insertions are unresolved.
+- Multi-pattern composition for **scoped** artifacts (per-subsystem files). v1 stance for root-scope artifacts is settled (#7: secondary patterns warn-and-ignore); scoped composition lands when the first consumer needs it.
 
 ---
 
@@ -196,12 +198,22 @@ Open: one operation or several (extract-to-executable, extract-to-library, extra
 ## Open questions
 
 - Publishing: one operation or multiple
-- Multiple patterns: how to merge contributions
-- File formats for pattern and project content
+- Multi-pattern composition for scoped artifacts (root-scope settled in #7)
 - Input spec: strict vs inferred
-- Whether skill templating and bootstrap should share one mechanism
 - **Domain axis.** Patterns describe architectural shape (Compiler, KB, etc.). Some content (coordinate/unit discipline, hardware-output rules) is not pattern-shaped — it's domain-shaped (CAD/CAM, ML, infrastructure, web). A Compiler producing CAM output and an ML system producing toolpaths both want the same coordinate rules. Provisional decision: a `domain/` axis exists in `conventions/` for content that cuts across patterns. Open: does the same axis need to exist for invariants and skills, or is it conventions-only?
 - **Pattern naming.** "batch-pipeline" is a placeholder for the pattern that owns `conventions/pattern/batch-pipeline/`. Candidates: per-item-fault-tolerant, item-batch. Pin during pattern taxonomy review.
+
+## Resolved
+
+Questions answered by closed/landed issues. Kept here so the trail is visible without re-reading issue history.
+
+- File format for pattern and project content → #7 (markdown with `## slot:` / `## insert:` headers, block-boundary parser, per-block normalization, empty-body fall-through)
+- Slot inline-default syntax → #7 (`{{NAME=default}}`; bare `{{NAME}}` is required)
+- Manifest location and shape → #6 (`<project>/.forge/manifest.yaml`, schema v1)
+- Registry-vs-manifest split → #6 (loader is registry-unaware; discovery is a separate layer)
+- Skill templating vs bootstrap mechanism → #7 (resolver is deterministic and pure; bootstrap is LLM-mediated and consumes resolver output; they share data, not mechanism)
+- Multi-pattern composition (root-scope) → #7 (secondary patterns warn-and-ignore in v1)
+- Snapshot mechanism / drift as separate operation → #7 (dropped; drift folds into `update`'s diff step, superseding #6's drift contract)
 
 ## Layering-audit test
 
@@ -225,7 +237,7 @@ Work through in order. Each step depends on the ones above it.
 
 - [x] **1. Pin pattern declaration.** Define the file format, location, and contents of a project's pattern declaration. Unblocks the resolver. _(issue #6 — schema v1 + manifest loader)_
 - [x] **2. Spec the resolver.** Pseudocode for: read pattern declaration → walk template → fill placeholders from pattern + project layers → emit final file. Cover the multi-pattern case. _(issue #7 — resolver v1; secondaries warn-and-ignore in v1)_
-- [ ] **3. Build resolver against forge itself.** Forge dogfoods — if the resolver produces forge's own skill files from the layered artifacts, the mechanism works for the dogfooded case.
+- [ ] **3. Build resolver against forge itself.** Forge dogfoods — the resolver should produce forge's own skill files from the layered artifacts. v1 status: the resolver runs against forge's manifest, but most global templates still carry required (un-defaulted) slots, so the dogfood is currently a **negative** test (asserts the expected `ResolverError`). Flips to positive once the remaining global slots are migrated to inline-default form (follow-up #8) or filled by a project layer.
 - [ ] **4. Bootstrap one external consumer.** mill_ui or relay. Exercises the project-layer customization step and surfaces the customization prompt's real failure modes.
 - [ ] **5. Address deferred questions.** Publishing shape, multi-pattern conflict rules, input-spec fidelity, domain axis for invariants/skills. Tractable only once mechanism exists.
 

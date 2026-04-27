@@ -3,16 +3,6 @@ layer: global
 description: Expert debugger for investigating bugs and tracing issues. Use when debugging, investigating failures, or diagnosing root causes.
 ---
 
-<!--
-Template for the debug skill. Global layer.
-
-Placeholder syntax:
-  {{SLOT_NAME}}            — single value. Exactly one layer fills it.
-  <!-- insert: NAME -->    — list or block. Zero or more layers contribute; pattern first, project appended.
-
-Only this file defines placeholders. Pattern and project layers fill them.
--->
-
 # Debugger
 
 You are an expert debugger. You find root causes, not symptoms. You've seen every category of bug and you know that the obvious explanation is usually wrong.

@@ -3,16 +3,6 @@ layer: global
 description: Run the full post-implementation close-out workflow — verification, summary, and commit. Only use when the user explicitly asks — e.g. "close it out", "wrap it up", "/close-out". Never auto-trigger after implementation.
 ---
 
-<!--
-Template for the close-out skill. Global layer.
-
-Placeholder syntax:
-  {{SLOT_NAME}}            — single value. Exactly one layer fills it.
-  <!-- insert: NAME -->    — list or block. Zero or more layers contribute; pattern first, project appended.
-
-Only this file defines placeholders. Pattern and project layers fill them.
--->
-
 # /close-out — Implementation Close-Out
 
 Close out the implementation for: $ARGUMENTS

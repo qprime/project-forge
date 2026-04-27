@@ -3,16 +3,6 @@ layer: global
 description: Draft a GitHub issue implementation specification. Use when planning a new feature, refactor, or bug fix that needs a detailed spec before implementation.
 ---
 
-<!--
-Template for the spec skill. Global layer.
-
-Placeholder syntax:
-  {{SLOT_NAME}}            — single value. Exactly one layer fills it.
-  <!-- insert: NAME -->    — list or block. Zero or more layers contribute; pattern first, project appended.
-
-Only this file defines placeholders. Pattern and project layers fill them.
--->
-
 # /spec — Implementation Specification
 
 Draft a {{ISSUE_TRACKER}} implementation specification for: $ARGUMENTS

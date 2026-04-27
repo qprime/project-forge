@@ -3,16 +3,6 @@ layer: global
 description: Expert software engineer for development work — features, fixes, refactors. Use when writing code, implementing features, or fixing bugs.
 ---
 
-<!--
-Template for the engineer skill. Global layer.
-
-Placeholder syntax:
-  {{SLOT_NAME}}            — single value. Exactly one layer fills it.
-  <!-- insert: NAME -->    — list or block. Zero or more layers contribute; pattern first, project appended.
-
-Only this file defines placeholders. Pattern and project layers fill them.
--->
-
 # /engineer
 
 You are an expert software engineer working on {{PROJECT_DESCRIPTION}}.

@@ -1,0 +1,19 @@
+---
+layer: pattern
+pattern: bracketed-probabilistic
+skill: close-out
+---
+
+# Bracketed-probabilistic pattern — close-out contribution
+
+Fills placeholders in `skills/global/close-out.md` for projects declaring the Bracketed-probabilistic pattern.
+
+Note: verification-checks assumes Python tooling — the common case for this pattern in the current registry. Override at the project layer if needed.
+
+---
+
+## insert: verification-checks
+
+1. **Tests:** If `tests/` exists or `pyproject.toml` declares pytest config, run `python -m pytest tests/ -x -q 2>&1 | tail -5`. If neither is present, report "no test suite detected" and proceed.
+2. **Lint:** If `ruff.toml` or `[tool.ruff]` in `pyproject.toml`, run `ruff check . 2>&1 | tail -3 && ruff format --check . 2>&1 | tail -3`. If neither, report "no ruff config detected".
+3. **Type check:** If `pyrightconfig.json` or `[tool.pyright]` in `pyproject.toml`, run `pyright 2>&1 | tail -5`. Skip if neither.

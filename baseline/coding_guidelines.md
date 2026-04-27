@@ -1,630 +1,364 @@
 # Python Coding Guidelines
 
-**Status:** Living Document
+Rules for AI agents writing Python in projects bootstrapped from this baseline.
 
-Guidelines for writing consistent, correct, and maintainable Python code. Derived from production experience. Applicable to any Python project.
+Each rule has: the rule (imperative), a right/wrong code pair, and the failure mode if violated. Cross-references to invariants in `invariants/global.md` (GL-N) are noted where applicable.
+
+How to use: when about to make a decision listed below, look up the rule. If a rule blocks correct work, raise it; do not work around it locally.
 
 ---
 
-## 1. Immutability by Default
+## Declaring a dataclass
 
-### Frozen Dataclasses
+### Frozen by default for data shared across modules
 
-All core data structures should be frozen dataclasses. Immutability prevents an entire class of bugs where shared state is accidentally modified.
+Implements GL-3 (data shared across modules is immutable by default). Mutation is allowed at documented boundaries — builders mid-construction, caches with a documented eviction contract, ORM models, framework-managed objects.
 
 ```python
+# Right
 @dataclass(frozen=True)
 class Measurement:
     width_mm: float
     height_mm: float
+
+# Wrong (shared across modules, not frozen)
+@dataclass
+class Measurement:
+    width_mm: float
 ```
 
-**Modify with `replace()`, never mutation:**
+**Failure mode:** shared mutable state turns innocuous changes into action-at-a-distance bugs.
+
+### Field order
+
+1. Required (no default)
+2. Optional typed (`field: Type | None = None`)
+3. Factory defaults (`field(default_factory=...)`)
+4. Scalar defaults (`field: Type = value`)
 
 ```python
-# Wrong
-item.width_mm = 100
+@dataclass(frozen=True)
+class Feature:
+    name: str                                                # required
+    width_mm: float
+    description: str | None = None                           # optional
+    tags: tuple[str, ...] = field(default_factory=tuple)     # factory
+    enabled: bool = True                                     # scalar
+```
 
+**Failure mode:** `TypeError` from fields-without-defaults following fields-with-defaults; constructors become unpredictable.
+
+### Tuples for structural collections
+
+```python
+# Right
+items: tuple[Item, ...]
+boundaries: tuple[Point, ...]
+
+# Wrong
+items: list[Item]
+```
+
+**Failure mode:** accidental mutation of shared structure.
+
+---
+
+## Modifying a frozen dataclass
+
+### Always use `replace()`
+
+```python
 # Right
 new_item = replace(item, width_mm=100)
+
+# Wrong
+item.width_mm = 100  # FrozenInstanceError at runtime
 ```
 
-### Nested Structures
-
-Frozen dataclasses only enforce shallow immutability. Nested dicts and lists remain technically mutable. Treat them as immutable anyway — always create new collections instead of modifying in place.
+### Replace nested dicts wholesale
 
 ```python
-# Wrong
-item.metadata["processed"] = True
-
 # Right
 new_item = replace(item, metadata={**item.metadata, "processed": True})
-```
 
-### Tuple Collections
-
-Use tuples instead of lists for collections that represent structural data. Tuples signal immutability and prevent accidental append/remove/sort operations.
-
-```python
-@dataclass(frozen=True)
-class Layout:
-    items: tuple[Item, ...]        # not list[Item]
-    boundaries: tuple[Point, ...]  # not list[Point]
-```
-
----
-
-## 2. Pipeline Architecture
-
-### Strict Layer Separation
-
-If your system transforms data through multiple stages, keep those stages separate. Each layer has a single responsibility and a well-defined contract with adjacent layers.
-
-```python
-# Wrong — mixing layers
-def build_and_export(raw_input):
-    model = parse(raw_input)
-    output = render(model)  # skipped validation
-    return model
-
-# Right — each stage is distinct
-model = parse(raw_input)
-validated = validate(model)
-output = render(validated)
-```
-
-### Intermediate Representations
-
-Use an explicit intermediate representation (IR) as the validation checkpoint between parsing and output generation. The IR describes *what* to do, not *how* to do it.
-
-Benefits:
-- Validation happens once, in one place
-- Multiple backends can consume the same IR
-- Tests target the IR (fast, focused) rather than the full pipeline (slow, brittle)
-
-### No Pass-Through of Computed Data
-
-Semantic data structures describe *what*, not *how*. Don't thread implementation details (computed geometry, backend-specific offsets, rendering hints) through semantic layers. Compute those details in the adapter between layers.
-
-```python
-# Wrong — threading computed data through semantic layer
-@dataclass(frozen=True)
-class Feature:
-    name: str
-    computed_offset: float  # implementation detail leaking into semantic layer
-
-# Right — semantic layer stays clean
-@dataclass(frozen=True)
-class Feature:
-    name: str
-    position: float  # semantic, not computed
-
-# Adapter computes implementation details from semantic fields
-def feature_to_backend_input(feature: Feature) -> BackendInput:
-    offset = compute_offset(feature.position)
-    return BackendInput(offset=offset)
-```
-
-### Determinism
-
-Same input must always produce the same output. No hidden state, no randomness without explicit seeds, no dependency on dict ordering (before Python 3.7) or floating-point platform differences.
-
----
-
-## 3. Function Purity
-
-### Pure Transformations
-
-Functions that transform data should be pure: same input produces same output, no side effects, no mutation of inputs.
-
-```python
-# Wrong — mutates input
-def process(domain: Domain) -> list[Item]:
-    domain.metadata["processed"] = True
-    return items
-
-# Right — input is read-only
-def process(domain: Domain) -> list[Item]:
-    # domain is never modified
-    return items
-```
-
-### Return Types
-
-Operations that can produce zero, one, or many results should always return a collection, never a single item. This handles all cases uniformly.
-
-```python
-# Wrong — special-cases single result
-def split(region: Region) -> Region | list[Region]:
-    ...
-
-# Right — always returns collection
-def split(region: Region) -> list[Region]:
-    ...
-```
-
----
-
-## 4. Error Handling
-
-### Error Philosophy
-
-| Category | Behavior | Use When |
-|----------|----------|----------|
-| Hard error | Raise exception | Invalid input, constraint violation |
-| Soft failure | Return empty + flag | Optional operation, absence acceptable |
-| Never allowed | Silent partial output | — |
-
-### Error Message Format
-
-Error messages must include four parts:
-
-1. **What failed** — the class or subsystem
-2. **What field** — the specific parameter
-3. **What constraint was violated** — the rule that was broken
-4. **Actual value** — what was received
-
-```python
 # Wrong
-raise ValueError("invalid width")
+item.metadata["processed"] = True  # mutates shared dict
+```
 
+**Failure mode:** technically-mutable nested structures break the immutability contract.
+
+### Provide `with_*()` helpers for repeated patterns
+
+```python
+def with_tags(self, *new_tags: str) -> Feature:
+    return replace(self, tags=self.tags + new_tags)
+```
+
+---
+
+## Writing a function that transforms data
+
+### Pure: no input mutation, no side effects
+
+Implements GL-4 (same input, same output).
+
+```python
+# Right
+def process(domain: Domain) -> tuple[Item, ...]:
+    return tuple(items_from(domain))
+
+# Wrong
+def process(domain: Domain) -> tuple[Item, ...]:
+    domain.metadata["processed"] = True
+    return tuple(items_from(domain))
+```
+
+**Failure mode:** debugging becomes guessing; tests become flaky; reproductions become impossible.
+
+### No hidden state, explicit seeds
+
+```python
+# Right
+def shuffle(items: tuple[Item, ...], *, seed: int) -> tuple[Item, ...]:
+    rng = random.Random(seed)
+    return tuple(rng.sample(items, len(items)))
+
+# Wrong
+def shuffle(items: tuple[Item, ...]) -> tuple[Item, ...]:
+    return tuple(random.sample(items, len(items)))  # unseeded
+```
+
+### Always return a collection for zero-or-more results
+
+```python
+# Right
+def split(region: Region) -> tuple[Region, ...]: ...
+
+# Wrong
+def split(region: Region) -> Region | tuple[Region, ...]: ...
+```
+
+**Failure mode:** caller branches on type to handle "one vs many." Agents copy whichever branch they saw first and miss the other.
+
+---
+
+## Building a collection
+
+### Explicit loop when error handling or branching is involved
+
+```python
+# Right
+items: list[Item] = []
+warnings: list[str] = []
+for raw in source:
+    try:
+        items.append(Item.from_raw(raw))
+    except ValueError as e:
+        warnings.append(f"Skipped {raw.id}: {e}")
+
+# Wrong
+items = [Item.from_raw(raw) for raw in source]  # any failure kills the batch
+```
+
+### Comprehensions only for simple, infallible transforms
+
+```python
+# Right
+names = [item.name for item in items]
+```
+
+### Convert to tuple at the return boundary
+
+```python
+# Right
+def collect_items(source) -> tuple[Item, ...]:
+    result: list[Item] = []
+    for raw in source:
+        result.append(Item.from_raw(raw))
+    return tuple(result)
+```
+
+### Preserve input order; dedupe with dict keyed by identity
+
+```python
+seen: dict[str, Item] = {}
+for item in items:
+    key = item.identity_key()
+    if key not in seen:
+        seen[key] = item
+return tuple(seen.values())
+```
+
+---
+
+## Raising an error
+
+### Choose the standard exception
+
+| Exception | When |
+|---|---|
+| `ValueError` | Right type, violates constraint (negative width, out of range) |
+| `TypeError` | Wrong type, unhandled union variant |
+| `KeyError` | Required key missing from a mapping |
+| `RuntimeError` | "Shouldn't happen" state, runtime invariant violation |
+| `NotImplementedError` | Interface method not yet implemented |
+| `FileNotFoundError` | Expected file does not exist |
+
+### Message format: what failed, what field, what constraint, actual value
+
+Implements GL-5 (failures carry context).
+
+```python
 # Right
 raise ValueError("SheetConfig: width_mm must be > 0, got -3.5")
+
+# Wrong
+raise ValueError("invalid width")
 ```
 
-If the error maps to a documented invariant:
+If the violation maps to an invariant, cite it:
 
 ```python
-raise ValueError("Joint at position 150mm aligns with adjacent layer (BM-9 violation)")
+raise ValueError("Joint at 150mm aligns with adjacent layer (BM-9 violation)")
 ```
 
-### No Silent Drops
+### Never silently drop unsupported cases
 
-Unsupported features or unrecognized inputs must error or warn — never silently pass. Silent partial output is the hardest class of bug to diagnose.
+If the unsupported case is required behavior, raise. If skipping is acceptable per the contract, collect a structured warning (see *Handling errors per layer*) — not `warnings.warn`, which is easy to miss in generated CLIs and pipelines.
 
 ```python
-# Wrong — silently ignores unknown constraint
+# Right (required behavior — fail hard)
+if constraint.type not in SUPPORTED:
+    raise ValueError(f"Constraint {constraint.type} not implemented")
+
+# Right (skipping is part of the contract)
+if constraint.type not in SUPPORTED:
+    warnings_out.append(f"Constraint {constraint.type} not implemented — skipped")
+    continue
+
+# Wrong (silent skip)
 if constraint.type in SUPPORTED:
     apply(constraint)
-# (unknown constraints silently skipped)
+```
 
-# Right — explicit about what's not supported
-if constraint.type not in SUPPORTED:
-    warnings.warn(f"Constraint {constraint.type} not implemented, skipping")
+**Failure mode:** silent partial output is the hardest class of bug to diagnose.
+
+### Custom exceptions only when callers will catch them specifically
+
+```python
+# Right (one per subsystem when callers distinguish)
+class ValidationError(ValueError):
+    """Constraint check failed during validation."""
+
+# Wrong (class explosion)
+class WidthTooSmallError(ValidationError): ...
+class HeightTooSmallError(ValidationError): ...
 ```
 
 ---
 
-## 5. Data Structure Design
+## Handling expected failures
 
-### Flat Type Systems
-
-Prefer flat, data-driven type systems over deep class hierarchies. Use a type tag + data dict instead of a class per variant. This is extensible without new classes and serializes naturally.
+### `SkipError` for "operation impossible for this input"
 
 ```python
-# Wrong — class per variant
-class Rectangle:
-    width: float
-    height: float
+class SkipError(ValueError):
+    """Operation impossible for this input — expected condition, not a bug."""
 
-class Circle:
-    radius: float
-
-# Right — flat, data-driven (when variants share the same pipeline)
-@dataclass(frozen=True)
-class Item:
-    type: str                        # "rect", "circle", etc.
-    data: dict[str, Any]             # {"width": 100, "height": 50}
+def generate(domain: Domain, params: Params, *, allow_empty: bool = False) -> tuple[Item, ...]:
+    if domain.area < min_area(params):
+        if allow_empty:
+            return ()
+        raise SkipError(f"Domain area {domain.area} below minimum {min_area(params)}")
+    return tuple(do_work(domain, params))
 ```
 
-**When to use typed dataclasses instead:** Typed dataclasses are appropriate in higher-level compositional layers (where the code constructs and pattern-matches on specific shapes) and in rendering/output layers (where shape identity matters for dispatch). The flat approach works best for intermediate representations that need extensibility without code changes.
+The layer above catches `SkipError`. It never propagates past the immediate caller.
 
-### Propagation via Params
+### Per-item isolation when partial output is part of the contract
 
-When parent nodes need to pass context to children, use a params dict rather than special-casing child types.
+Use per-item isolation when the operation's contract allows partial output (analysis, reporting, best-effort transforms). Do *not* use it for transactional, safety-critical, publishing, migration, or validation paths — those must fail the whole batch on any item failure.
 
 ```python
-# Wrong — parent special-cases child types
-for child in node.children:
-    if isinstance(child, SpecialChild):
-        handle_special(child, extra_context)
-    else:
-        handle_generic(child)
+# Right (analysis — partial output is acceptable)
+results: list[Result] = []
+warnings: list[str] = []
+for item in items:
+    try:
+        results.append(analyze(item))
+    except ValueError as e:
+        warnings.append(f"Skipped {item.id}: {e}")
 
-# Right — all children receive the same context
-child_params = {**params, "context": extra_context}
-for child in node.children:
-    handle(child, child_params)
+# Right (transactional — any failure aborts)
+results = [persist(item) for item in items]  # raises kill the batch, as required
 ```
-
-Children decide whether to consume the context. Parents don't need to know what children need.
 
 ---
 
-## 6. Testing
+## Dispatching on a value
 
-### Test at the Right Level
-
-Test against your intermediate representation, not the full pipeline output. IR-level tests are fast, focused, and don't depend on output format details.
+### Registry dict at 5+ branches or when types are added regularly
 
 ```python
-# Wrong — testing final output format
-output = full_pipeline(input)
-assert "expected_string" in output
-
-# Right — testing semantic correctness
-model = parse_and_validate(input)
-assert model.items[0].width == 100
-```
-
-Full pipeline tests exist for integration/golden testing. Unit tests should target the layer where the logic lives.
-
-### Test Project Code, Not the Language
-
-Don't write tests for behavior guaranteed by Python itself.
-
-```python
-# Wrong — tests Python's @dataclass, not project code
-def test_frozen():
-    spec = Config(value=10)
-    with pytest.raises(FrozenInstanceError):
-        spec.value = 20
-
-def test_equality():
-    assert Config(value=5) == Config(value=5)
-
-def test_replace():
-    modified = replace(Config(value=10), value=20)
-    assert modified.value == 20
-```
-
-Test construction only when the dataclass has custom `__post_init__` validation. Test behavior the project implements.
-
-### No Duplicate Coverage
-
-Before creating a new test file, check if existing tests already cover the same functions. Two test files testing the same function with the same inputs is a defect, not defense in depth.
-
-### Semantic Equivalence in Round-Trip Tests
-
-When testing serialization round-trips, assert on semantic equivalence, not syntax preservation. Whitespace, key order, and formatting may change.
-
-```python
-# Wrong
-assert serialize(parse(input_text)) == input_text
-
 # Right
-assert parse(serialize(model)) == model
-```
-
-### Use the Test Framework
-
-Tests are discovered by pytest (or your project's framework). Don't add:
-
-- `if __name__ == "__main__":` runner blocks
-- `print("PASS")` / `print("FAIL")` reporting
-- `return True` from test functions
-- `sys.path` manipulation
-
-These are dead code in a framework-collected suite and mislead future contributors into copying the pattern.
-
-### Expensive Iteration
-
-If your test suite iterates over a large fixture set (all examples, all configs), limit this to one test per validation concern. If a higher-level test already runs the full set, don't add redundant loops.
-
----
-
-## 7. Coordinate and Unit Discipline
-
-### Single Unit System
-
-Pick one unit and use it everywhere. No runtime conversions, no mixed units, no unit suffixes on variable names (unless disambiguating at system boundaries).
-
-```python
-# Wrong — mixed units
-width_inches = 4.0
-width_mm = width_inches * 25.4
-
-# Right — one unit throughout
-width_mm = 101.6
-```
-
-If your system needs to accept external input in different units, convert at the boundary and never again internally.
-
-### Coordinate Spaces
-
-Define and document your coordinate system explicitly. When multiple coordinate spaces exist (local, world, screen), name them and document the transforms between them.
-
-Rules:
-- Internal code operates in one canonical coordinate space
-- Transforms happen at well-defined boundaries (import, export, rendering)
-- Never apply the same transform twice — track what space data is in
-
-```python
-# Wrong — margin applied in internal computation AND at export
-item_x = margin + offset  # internal
-export_x = margin + item_x  # double margin
-
-# Right — internal coordinates are pure; transform at export
-item_x = offset  # working-area space
-export_x = margin + item_x  # transform once at export
-```
-
----
-
-## 8. Defaults and Configuration
-
-### Document Defaults
-
-Maintain a single reference for all default values, including where they're defined and what they mean. When defaults appear in multiple locations, they must agree.
-
-### Changing Defaults
-
-Changes to defaults affect all consumers that rely on implicit values. When changing a default:
-- Check all call sites that rely on the implicit value
-- Document the change in the commit message
-- Consider whether existing saved configurations need migration
-
-### Policy vs Invariant
-
-Distinguish between values that are policy (can change with care) and values that are invariants (changing breaks the system). Label them explicitly.
-
----
-
-## 9. Validation
-
-### Validate at Construction
-
-Constraints on data structures should be enforced at construction time, not checked later.
-
-```python
 @dataclass(frozen=True)
-class Box:
-    width: float
-    height: float
+class FeatureData:
+    width_mm: float
+    depth_mm: float
+    params: Mapping[str, Any]
 
-    def __post_init__(self):
-        if self.width <= 0:
-            raise ValueError(f"Box: width must be > 0, got {self.width}")
-        if self.height <= 0:
-            raise ValueError(f"Box: height must be > 0, got {self.height}")
+HANDLERS: dict[str, Callable[[FeatureData], Output]] = {
+    "pocket": handle_pocket,
+    "profile": handle_profile,
+    "hole": handle_hole,
+}
+
+def handle(feature_type: str, data: FeatureData) -> Output:
+    handler = HANDLERS.get(feature_type)
+    if handler is None:
+        raise ValueError(f"Unknown feature type: {feature_type}")
+    return handler(data)
 ```
 
-### Validate at Boundaries
-
-Validate data at system boundaries: user input, file parsing, API responses, database reads. Internal code can trust validated data — don't re-validate at every function call.
-
-### Constraint Auditing
-
-When your system processes constraints or configuration, emit an audit summary showing what was honored, what was ignored, and what isn't implemented yet. This makes "it silently didn't work" impossible.
-
----
-
-## 10. Invariant Management
-
-### What Invariants Are
-
-An invariant is a rule that, if violated, breaks the system's correctness guarantees. Invariants are not style preferences — they are load-bearing contracts.
-
-### Classify Invariants
-
-| Type | Meaning |
-|------|---------|
-| HARD | Violation breaks the system |
-| STRUCTURAL | Requires coordinated migration across multiple files to change |
-| POLICY | Current default, can change with care |
-| FALLBACK | Defensive behavior that signals an upstream bug |
-
-### Document Invariants Per Subsystem
-
-Each subsystem should have a document listing its invariants with IDs, types, and descriptions. Before modifying a subsystem, read its invariants.
-
-### Amendment Process
-
-If a new feature needs to violate an invariant:
-
-1. **Stop** — do not work around it locally
-2. Determine if the invariant is wrong or the feature design is wrong
-3. If the invariant needs to change, amend the invariant document explicitly
-4. Code changes and invariant changes must be in the same commit
-
-Invariant violations are design bugs, not implementation bugs.
-
-### Regression Traps
-
-Document patterns that look like improvements but break the system. Common traps for AI-assisted development:
-
-| Trap | Why It's Wrong |
-|------|----------------|
-| Adding class hierarchies for variants | Flat type + data dict is intentionally extensible |
-| Shortcutting pipeline layers | The IR layer exists for validation, not bureaucracy |
-| Preserving syntax instead of semantics | Only AST equality matters in round-trips |
-| Mutating inputs for "efficiency" | Shared state corruption |
-| Threading computed data through semantic layers | Violates layer separation |
-
----
-
-## 11. Code Style
-
-### Self-Documenting Code
-
-Write code that communicates intent through naming, structure, and type signatures. Comments should be rare — reserved for explaining *why*, never *what*. If code needs a comment to explain what it does, rename things until it doesn't.
-
-### No Dead Code
-
-Don't leave commented-out code, unused imports, backward-compatibility shims for removed features, or `# removed` markers. If something is unused, delete it. Version control remembers.
-
-### Named Constants
-
-All magic numbers and layout values should be named module-level constants. Inline literals make code harder to maintain and produce inconsistencies when the same value appears in multiple places.
+### Decorator registration for large registries
 
 ```python
-# Wrong
-if margin < 10.0:
+HANDLERS: dict[str, Callable[[FeatureData], Output]] = {}
+
+def register(feature_type: str):
+    def decorator(fn: Callable[[FeatureData], Output]):
+        HANDLERS[feature_type] = fn
+        return fn
+    return decorator
+
+@register("pocket")
+def handle_pocket(data: FeatureData) -> Output: ...
+```
+
+### Normalize at dispatch entry, not in handlers
+
+```python
+# Right
+def handle(feature_type: str, data: FeatureData) -> Output:
+    handler = HANDLERS.get(feature_type.lower().strip())
     ...
 
-# Right
-MIN_MARGIN_MM = 10.0
-if margin < MIN_MARGIN_MM:
-    ...
-```
-
-### Minimal Changes
-
-Only change what's directly needed. A bug fix doesn't need surrounding code cleaned up. A feature doesn't need extra configurability. Don't add docstrings, comments, or type annotations to code you didn't write or change.
-
----
-
-## 12. Output and Serialization
-
-### Deterministic Output
-
-Same input must produce byte-identical output. This enables golden file testing, reproducible builds, and meaningful diffs.
-
-### Single Conversion Path
-
-For any given input→output transformation, maintain exactly one code path. Multiple paths for the same conversion inevitably diverge and produce inconsistent results.
-
-### Valid Output
-
-Output must always be valid according to its format specification. Malformed output is a bug, not a "the consumer should handle it" situation.
-
----
-
-## 13. Feature Completeness
-
-### End-to-End Coverage
-
-A feature isn't done when the implementation works. It's done when:
-
-1. The core logic is implemented
-2. The input format supports it (parser, schema, API)
-3. Validation covers it
-4. It's documented in the syntax/API reference
-5. An example or recipe demonstrates usage
-
-Partial implementation — logic without input support, or input support without validation — is tech debt that accumulates silently.
-
-### Declarative Input First
-
-If your system accepts user-facing input, the input format should be declarative — describing *what*, not *how*. If a feature requires users to write code (scripts, hooks, custom classes) to achieve something that should be expressible declaratively, the input format is incomplete.
-
----
-
-## 14. Safety-Critical Constraints
-
-When your system has constraints where violation causes real harm (data loss, hardware damage, security breach), those constraints get special treatment:
-
-- **Hard error on violation** — never warn-and-continue
-- **Post-execution verification** — check that the output respects the constraint, don't just trust the generation logic
-- **Labeled in invariants** — mark the safety level explicitly so future maintainers understand the stakes
-
----
-
-## 15. Dependency Direction
-
-### Imports Flow Downward
-
-Lower layers must not import from higher layers. If your validation layer imports from your renderer, or your data model imports from your CLI, the dependency is inverted.
-
-```
-Input/CLI  →  Parser  →  IR/Model  →  Validation  →  Backend/Output
-   ↓            ↓           ↓             ↓               ↓
- (each layer may import from layers to its right, never to its left)
-```
-
-### Enforcing Direction
-
-A practical test: if you delete a higher-level module, lower-level modules should still import cleanly. If removing your CLI breaks your data model, you have a circular dependency.
-
-### Adapter Pattern
-
-When a higher layer's types are needed by a lower layer, introduce an adapter at the boundary rather than pulling the higher layer's imports downward.
-
-```python
-# Wrong — model imports from renderer
-from renderer.types import RenderHint
-
-@dataclass(frozen=True)
-class Feature:
-    render_hint: RenderHint  # model depends on renderer
-
-# Right — adapter converts at the boundary
-# model.py
-@dataclass(frozen=True)
-class Feature:
-    style: str  # generic, no renderer dependency
-
-# adapter.py
-from model import Feature
-from renderer.types import RenderHint
-
-def feature_to_render_hint(feature: Feature) -> RenderHint:
-    return STYLE_MAP[feature.style]
-```
-
----
-
-## 16. Enums vs String Literals
-
-### Closed Sets Use Enums
-
-When the set of valid values is known and fixed, use an Enum. Enums catch typos at import time, enable IDE autocomplete, and make the valid set discoverable.
-
-```python
-# Wrong — stringly typed
-def set_mode(mode: str):
-    if mode == "fast":  # typo "fats" would silently fail
+# Wrong (normalization scattered into handlers)
+def handle_pocket(data: FeatureData) -> Output:
+    if data.kind.lower() == "pocket":
         ...
-
-# Right — closed set
-class Mode(Enum):
-    FAST = auto()
-    SAFE = auto()
-    DRY_RUN = auto()
-
-def set_mode(mode: Mode):
-    ...
 ```
 
-### Open Sets Use Strings
-
-When the set of values is extensible without code changes (shape types in a flat IR, plugin names, user-defined tags), strings are appropriate. The extensibility is the point — new values shouldn't require new code.
-
-### The Decision Rule
-
-| Question | Answer | Use |
-|----------|--------|-----|
-| Can a new value be added without changing Python code? | Yes | `str` |
-| Adding a new value requires a new code path? | Yes | `Enum` |
-| Is the set defined by external data (config, schema)? | Yes | `str` |
-| Is the set defined by the program's logic? | Yes | `Enum` |
+### Short chains (2–3 branches, unlikely to grow) can use if/elif
 
 ---
 
-## 17. Union Types and Exhaustiveness
+## Matching on a union type
 
-### Explicit Unions for Variant Types
-
-When a value can be one of several concrete types, define the union explicitly.
+### Exhaustive with explicit `else`
 
 ```python
-FaceFeature = DrillHole | SquareMortise | CarvedDesign | GeometricPattern
-```
-
-### Handle Every Variant
-
-Match/if-else chains over union types must handle every variant. Adding a new variant to the union should cause visible failures, not silent fallthrough.
-
-```python
-# Wrong — silent fallthrough on new variant
-def process(feature: FaceFeature) -> Output:
-    if isinstance(feature, DrillHole):
-        return process_hole(feature)
-    elif isinstance(feature, SquareMortise):
-        return process_mortise(feature)
-    # CarvedDesign silently returns None
-
-# Right — exhaustive with explicit failure
+# Right
 def process(feature: FaceFeature) -> Output:
     if isinstance(feature, DrillHole):
         return process_hole(feature)
@@ -632,17 +366,19 @@ def process(feature: FaceFeature) -> Output:
         return process_mortise(feature)
     elif isinstance(feature, CarvedDesign):
         return process_carving(feature)
-    elif isinstance(feature, GeometricPattern):
-        return process_pattern(feature)
     else:
         raise TypeError(f"Unhandled feature type: {type(feature).__name__}")
+
+# Wrong (silent fallthrough)
+def process(feature: FaceFeature) -> Output:
+    if isinstance(feature, DrillHole):
+        return process_hole(feature)
+    elif isinstance(feature, SquareMortise):
+        return process_mortise(feature)
+    # CarvedDesign returns None silently
 ```
 
-### The Else Clause
-
-Always include a final `else` that raises `TypeError` with the unexpected type name. This turns silent bugs into immediate, diagnosable failures when a new variant is added.
-
-For `match` statements, use a wildcard case with the same pattern:
+### `match` with wildcard
 
 ```python
 match feature:
@@ -654,259 +390,77 @@ match feature:
         raise TypeError(f"Unhandled feature type: {type(feature).__name__}")
 ```
 
----
-
-## 18. Logging and Diagnostics
-
-### print() Is for Debugging, Not Production
-
-`print()` is a temporary debugging tool. It should never appear in committed code. If you need runtime diagnostics, use the `logging` module.
-
-```python
-# Wrong — print in production code
-def process(items):
-    print(f"Processing {len(items)} items")
-    for item in items:
-        print(f"  item: {item.name}")
-    return results
-
-# Right — structured logging
-import logging
-logger = logging.getLogger(__name__)
-
-def process(items):
-    logger.info("Processing %d items", len(items))
-    for item in items:
-        logger.debug("Processing item: %s", item.name)
-    return results
-```
-
-### Why Logging Over Print
-
-| Concern | `print()` | `logging` |
-|---------|-----------|-----------|
-| Can be silenced | No (without redirecting stdout) | Yes (level filtering) |
-| Shows source location | No | Yes (formatter) |
-| Configurable per-module | No | Yes |
-| Can route to files, services | No (without plumbing) | Yes (handlers) |
-| Searchable in grep | Ambiguous (`print` is everywhere) | Clear (`logger.info`, `logger.warning`) |
-
-### Level Discipline
-
-| Level | Use When |
-|-------|----------|
-| `DEBUG` | Internal state useful during development (variable values, branch taken) |
-| `INFO` | High-level progress milestones ("Processing 47 items", "Export complete") |
-| `WARNING` | Something unexpected but recoverable (unsupported constraint skipped, fallback used) |
-| `ERROR` | Something failed but the program continues (one item in a batch failed) |
-| `CRITICAL` | The program cannot continue |
-
-Don't use `WARNING` for expected situations. Don't use `INFO` for per-item detail that floods the output. Match the level to the audience: `INFO` is for operators, `DEBUG` is for developers.
+**Failure mode:** new variant added to the union, dispatch silently returns `None`.
 
 ---
 
-## 19. Exception Types
+## Picking a type mechanism
 
-### Standard Exception Hierarchy
+| Mechanism | When |
+|---|---|
+| `Enum` with `auto()` | Internal identity types where the value doesn't matter |
+| `Enum` with string values | Serialized or user-facing values |
+| `Literal[...]` | 2–4 values constraining a single dataclass field |
+| Constants class | String keys for dict lookup/dispatch |
+| Pipe union (`A \| B`) | Sum types at module level |
+| `Protocol` | Structural-subtyping interface (add `@runtime_checkable` only if `isinstance`/`issubclass` is needed at runtime) |
 
-Use Python's built-in exceptions consistently:
-
-| Exception | Use When |
-|-----------|----------|
-| `ValueError` | Value is the right type but violates a constraint (negative width, empty string, out of range) |
-| `TypeError` | Value is the wrong type entirely (passed a string where an int was expected, unhandled union variant) |
-| `KeyError` | Required key missing from a dict or mapping |
-| `RuntimeError` | A state that "shouldn't happen" was reached (invariant violation at runtime, impossible branch) |
-| `NotImplementedError` | Method exists in interface but this subclass hasn't implemented it yet |
-| `FileNotFoundError` | Expected file/path doesn't exist |
-
-### Custom Exceptions
-
-Create custom exceptions when callers need to distinguish your errors from generic ones for recovery purposes.
+### Closed set with new code path on add → `Enum`
 
 ```python
-class ValidationError(ValueError):
-    """A constraint check failed during validation."""
-
-class PipelineError(RuntimeError):
-    """An invariant was violated during pipeline execution."""
+class Mode(Enum):
+    FAST = auto()
+    SAFE = auto()
+    DRY_RUN = auto()
 ```
 
-Don't create custom exceptions just for naming. If no caller will ever `except YourCustomError`, it doesn't need to exist — use the standard type.
-
-### Exception Granularity
-
-One custom base exception per subsystem is usually enough. Don't create a unique exception class for every possible error — that's a class hierarchy problem in disguise.
+### Open set extensible by data → `str`
 
 ```python
-# Wrong — exception class explosion
-class WidthTooSmallError(ValidationError): ...
-class HeightTooSmallError(ValidationError): ...
-class DepthNegativeError(ValidationError): ...
-
-# Right — one exception, descriptive message
-raise ValidationError("Box: width must be > 0, got -3.5")
+# Shape types in a flat IR — new shapes from config, no new code
+@dataclass(frozen=True)
+class Item:
+    type: str        # "rect", "circle", or anything plugins register
+    data: dict[str, Any]
 ```
 
-The error message carries the specifics. The exception type carries the category.
+### Decision rule
 
----
+| Question | Answer | Use |
+|---|---|---|
+| Can a new value be added without changing Python code? | Yes | `str` |
+| Adding a new value requires a new code path? | Yes | `Enum` |
+| Set defined by external data (config, schema)? | Yes | `str` |
+| Set defined by program logic? | Yes | `Enum` |
 
-## 20. Error Semantics by Layer
+### Protocol over ABC for interfaces
 
-### Each Layer Has Its Own Failure Mode
-
-Not every layer should handle errors the same way. Define the failure behavior per layer and stick to it.
-
-| Layer | On Failure | Mechanism |
-|-------|-----------|-----------|
-| Parser | Fail hard | Raise a parse error; malformed input is not recoverable |
-| Resolver / Builder | Skip item | Catch expected-failure exceptions; continue with remaining items |
-| Adapters | Warn + skip | Catch `ValueError` around each item; log warning, collect into warnings list, continue |
-| Core engine / Planner | Warn + skip | Log to structured accumulator; skip individual item, continue job |
-| Pipeline orchestrator | Collect + gate | Accumulate errors/warnings from all layers; halt on safety-critical failures |
-
-The principle: failures become less fatal as you move outward. The parser is strict. The pipeline orchestrator is lenient with individual items but strict about safety constraints.
-
-### Per-Item Isolation
-
-In any loop that processes a collection, wrap each item in `try/except`. One bad item should never kill the batch.
+Use plain `Protocol` for structural subtyping. Add `@runtime_checkable` only when the interface is checked with `isinstance` or `issubclass` at runtime.
 
 ```python
-# Wrong — one bad item kills everything
-results = []
-for item in items:
-    results.append(process(item))
+# Right (structural subtyping, static-only)
+class Handler(Protocol):
+    def handle(self, event: Event) -> Result: ...
 
-# Right — per-item isolation
-results = []
-warnings = []
-for item in items:
-    try:
-        results.append(process(item))
-    except ValueError as e:
-        warnings.append(f"Skipped {item.id}: {e}")
-```
+# Right (runtime check needed)
+@runtime_checkable
+class Handler(Protocol):
+    def handle(self, event: Event) -> Result: ...
 
-### Structured Warning Collection
-
-When an item is skipped, emit both:
-1. A log message (`logger.warning(...)`) for developer diagnostics
-2. A structured warning (`warnings.append(msg)`) for the pipeline result
-
-If the skip affects final output, it must reach the structured warnings — pure logging is only for internal diagnostics that don't affect correctness.
-
-Warning messages always include: item identity, the specific problem, and the action taken ("— skipped").
-
----
-
-## 21. Expected-Failure Exceptions
-
-### The Skip Protocol
-
-Some failures are expected and normal — not bugs. A region too small to machine, a constraint that can't be satisfied, an optional operation with no work to do. These need a dedicated exception type so callers can distinguish "expected skip" from "actual bug."
-
-```python
-class SkipError(ValueError):
-    """Operation impossible for this input — expected condition, not a bug."""
-```
-
-### The Full Pattern
-
-```python
-def generate(domain, params, *, allow_empty=False):
-    if domain.area < min_area(params):
-        if allow_empty:
-            return []
-        raise SkipError(f"Domain area {domain.area} below minimum {min_area(params)}")
-    return do_work(domain, params)
-```
-
-Callers choose their tolerance:
-- **Strict mode** (`allow_empty=False`): raises on skip — caller must handle
-- **Lenient mode** (`allow_empty=True`): returns empty — caller gets no output but no exception
-
-The layer above always catches `SkipError` and continues. It never propagates past the immediate caller.
-
----
-
-## 22. Dispatch Patterns
-
-### Registry Dict Over If/Elif
-
-When dispatching on a type tag or feature name, prefer a registry dict over long if/elif chains. Registries are declarative, extensible, and self-documenting.
-
-```python
-# Wrong — long if/elif chain
-def handle(feature_type, data):
-    if feature_type == "pocket":
-        return handle_pocket(data)
-    elif feature_type == "profile":
-        return handle_profile(data)
-    elif feature_type == "hole":
-        return handle_hole(data)
-    # grows forever...
-
-# Right — registry dict
-HANDLERS = {
-    "pocket": handle_pocket,
-    "profile": handle_profile,
-    "hole": handle_hole,
-}
-
-def handle(feature_type, data):
-    handler = HANDLERS.get(feature_type)
-    if handler is None:
-        raise ValueError(f"Unknown feature type: {feature_type}")
-    return handler(data)
-```
-
-### Decorator Registration
-
-For large registries, a decorator keeps the handler and its registration co-located:
-
-```python
-HANDLERS: dict[str, Callable] = {}
-
-def register(feature_type: str):
-    def decorator(fn):
-        HANDLERS[feature_type] = fn
-        return fn
-    return decorator
-
-@register("pocket")
-def handle_pocket(data):
-    ...
-```
-
-### When If/Elif Is Fine
-
-Short chains (2–3 branches) that are unlikely to grow don't need a registry. Don't over-engineer dispatch for simple cases. The registry pattern earns its keep at ~5+ branches or when new types are added regularly.
-
-### Normalize Before Dispatch
-
-If your type tags come from external input with inconsistent casing, normalize at the dispatch entry point — not inside each handler.
-
-```python
-def handle(feature_type: str, data):
-    handler = HANDLERS.get(feature_type.lower())
-    ...
+# Wrong (forces inheritance coupling unless shared implementation is needed)
+class Handler(ABC):
+    @abstractmethod
+    def handle(self, event: Event) -> Result: ...
 ```
 
 ---
 
-## 23. Function Signature Conventions
+## Designing a function signature
 
-### Frozen Params Objects
-
-When a function takes more than 3 related parameters, group them into a frozen dataclass. This prevents argument-order bugs, makes the call site self-documenting, and provides a natural place for validation.
+### At most 3 positional parameters; group the rest in a frozen params dataclass
 
 ```python
-# Wrong — too many positional args
-def generate(width, height, depth, spacing, offset, angle):
-    ...
-
-# Right — params object
+# Right
 @dataclass(frozen=True)
 class GridParams:
     width_mm: float
@@ -916,323 +470,386 @@ class GridParams:
     offset_mm: float = 0.0
     angle_deg: float = 0.0
 
-def generate(domain: Domain, params: GridParams):
-    ...
+def generate(domain: Domain, params: GridParams) -> tuple[Item, ...]: ...
+
+# Wrong
+def generate(width, height, depth, spacing, offset, angle): ...
 ```
 
-### Keyword-Only Arguments
-
-Use `*` to force keyword-only arguments for flags and options that would be ambiguous as positional args.
+### Keyword-only for flags
 
 ```python
-def generate(domain: Domain, params: GridParams, *, allow_empty: bool = False):
-    ...
+def generate(
+    domain: Domain,
+    params: GridParams,
+    *,
+    allow_empty: bool = False,
+) -> tuple[Item, ...]: ...
 ```
 
-### Max Positional Parameters
-
-A function should take at most 3 positional parameters. Beyond that, use a params object or keyword-only arguments. Long positional signatures invite argument-order bugs that the type checker can't catch.
-
----
-
-## 24. Naming Vocabulary
-
-### Consistent Verbs at Layer Boundaries
-
-Use the same verb for the same operation across the codebase. When a new contributor sees `parse_`, they should know exactly what kind of operation it is.
-
-| Verb | Meaning | Example |
-|------|---------|---------|
-| `parse_*` | String/text → structured data | `parse_config`, `parse_dimension` |
-| `format_*` | Structured data → string/text | `format_output`, `format_report` |
-| `resolve_*` | Simplify structure, expand references | `resolve_layout`, `resolve_template` |
-| `*_to_*` | Convert between typed representations | `model_to_dto`, `ast_to_ir` |
-| `validate_*` | Check correctness, raise on failure | `validate_config`, `validate_bounds` |
-| `build_*` | Construct complex object from parts | `build_pipeline`, `build_tool_db` |
-| `load_*` | Read from disk or external source | `load_config`, `load_template` |
-| `write_*` | Emit machine/file output | `write_output`, `write_report` |
-| `render_*` | Emit visual/display output | `render_diagram`, `render_html` |
-| `expand_*` | Parameterized instantiation | `expand_template`, `expand_macro` |
-
-### Private Helper Prefixes
-
-Private helpers follow the same verb conventions with underscore prefix:
-
-| Pattern | Purpose |
-|---------|---------|
-| `_handle_*` | Dispatch target for a specific case |
-| `_build_*` | Internal construction helper |
-| `_validate_*` | Internal validation check |
-| `_collect_*` / `_count_*` | Aggregation helpers |
-| `_is_*` / `_has_*` | Boolean predicates |
-
-### Why This Matters
-
-Consistent naming eliminates guesswork. You don't search for "does it convert or transform or translate or map" — it's always `*_to_*`. You don't wonder "is it read or load or fetch" — it's always `load_*` for disk, `fetch_*` for network.
-
----
-
-## 25. Guard Clauses and Input Normalization
-
-### Guard Clauses at Entry
-
-Functions validate preconditions with early `raise` before doing real work. This keeps the happy path unindented and easy to follow.
+### Guard clauses at entry; happy path unindented
 
 ```python
-# Wrong — nested conditionals
+# Right
+def process(items: tuple[Item, ...], config: Config) -> tuple[Result, ...]:
+    if not items:
+        return ()
+    if not config.is_valid():
+        raise ValueError(f"Config: must be valid, got {config}")
+    return tuple(handle(item) for item in items)
+
+# Wrong (nested conditionals, real work indented 3 levels)
 def process(items, config):
     if items:
         if config.is_valid():
-            # 3 levels deep before real work starts
             for item in items:
                 ...
-
-# Right — guard clauses
-def process(items, config):
-    if not items:
-        return []
-    if not config.is_valid():
-        raise ValueError(f"Config: must be valid, got {config}")
-    for item in items:
-        ...
 ```
 
-### Normalize Before Branching
-
-Canonicalize inputs at function entry — before any validation or dispatch logic. This prevents scattered normalization and missed cases.
+### Normalize inputs at entry, before branching
 
 ```python
-def handle_shape(shape_type: str, data: dict):
+# Right
+def handle_shape(shape_type: str, data: dict) -> Output:
     shape_type = shape_type.lower().strip()
-    # now all branches see normalized input
     handler = HANDLERS.get(shape_type)
     ...
 ```
 
-Common normalizations:
-- `.lower()` / `.strip()` for string tags
-- `float()` / `int()` for numeric strings from parsed input
-- `None` checks resolved to defaults
+---
+
+## Naming things
+
+### Use the canonical verb at layer boundaries
+
+| Verb | Meaning | Example |
+|---|---|---|
+| `parse_*` | String → structured data | `parse_config` |
+| `format_*` | Structured data → string | `format_report` |
+| `resolve_*` | Simplify, expand references | `resolve_layout` |
+| `*_to_*` | Convert between typed reps | `ast_to_ir` |
+| `validate_*` | Check, raise on failure | `validate_config` |
+| `build_*` | Construct from parts | `build_pipeline` |
+| `load_*` | Read from disk/external | `load_config` |
+| `write_*` | Emit machine/file output | `write_output` |
+| `render_*` | Emit visual output | `render_diagram` |
+| `expand_*` | Parameterized instantiation | `expand_template` |
+
+### Private helpers: underscore prefix, same verb conventions
+
+| Pattern | Purpose |
+|---|---|
+| `_handle_*` | Dispatch target for a case |
+| `_build_*` | Internal construction helper |
+| `_validate_*` | Internal check |
+| `_collect_*` / `_count_*` | Aggregation |
+| `_is_*` / `_has_*` | Boolean predicate |
+
+### Names must be true when read cold
+
+A function called `validate_and_save` must validate *and* save. A `_legacy_` prefix on an actively-used helper is a lie. Rename when behavior changes; don't keep stale names "for compatibility."
+
+**Failure mode:** an agent reads the name, doesn't read the body, propagates the lie.
+
+### Public surface is contract; private surface is sketch
+
+If a name lacks the underscore prefix, anything in the codebase will reach for it. The `_` prefix is the only signal that something is internal. Use it.
 
 ---
 
-## 26. Collection Building
+## Validating data
 
-### Explicit Loops Over Comprehensions
-
-When building collections with per-item error handling, conditional logic, or multi-step processing, use explicit loops. Comprehensions are for simple transforms.
+### Validate at construction with `__post_init__`
 
 ```python
-# Wrong — comprehension with try/except (not possible) or conditional that hides errors
-items = [process(x) for x in inputs if can_process(x)]
+@dataclass(frozen=True)
+class Box:
+    width_mm: float
+    height_mm: float
 
-# Right — explicit loop with error handling
-items = []
-for x in inputs:
-    try:
-        items.append(process(x))
-    except ValueError as e:
-        warnings.append(f"Skipped {x.id}: {e}")
+    def __post_init__(self):
+        if self.width_mm <= 0:
+            raise ValueError(f"Box: width_mm must be > 0, got {self.width_mm}")
+        if self.height_mm <= 0:
+            raise ValueError(f"Box: height_mm must be > 0, got {self.height_mm}")
 ```
 
-Comprehensions are fine for simple, infallible transforms: `names = [item.name for item in items]`.
+### Validate at system boundaries; trust internal data
 
-### Tuple at the Return Boundary
+User input, file parsing, API responses, database reads → validate. Internal code → trust.
 
-Internal accumulation uses `list` (for `.append()`). Convert to `tuple` at the return boundary when the frozen dataclass field expects it.
+### Emit an audit summary when processing constraints
 
-```python
-def collect_items(source) -> tuple[Item, ...]:
-    result = []  # mutable during construction
-    for raw in source:
-        result.append(Item.from_raw(raw))
-    return tuple(result)  # frozen at return
-```
-
-### Preserve Input Order
-
-Output order should match input order by default. If you need deduplication, use a dict keyed by identity to preserve first-seen order:
-
-```python
-seen = {}
-for item in items:
-    key = item.identity_key()
-    if key not in seen:
-        seen[key] = item
-unique_items = tuple(seen.values())
-```
+When the system honors, ignores, or skips constraints, output a summary listing each. Silent partial application is a defect (GL-5).
 
 ---
 
-## 27. Serialization Completeness
+## Logging
 
-### Serialize All Non-Private Fields
-
-`to_dict()` methods must serialize all non-private fields. If a field is intentionally omitted, document the omission at the serialization site explaining why. Silent omission is a data-loss bug.
+### Never `print()` in committed code; use `logging`
 
 ```python
-# Wrong — silently drops field
-def to_dict(self):
-    return {
-        "name": self.name,
-        "width": self.width,
-        # height silently missing
-    }
+# Right
+import logging
+logger = logging.getLogger(__name__)
 
-# Right — all fields present
-def to_dict(self):
-    return {
-        "name": self.name,
-        "width": self.width,
-        "height": self.height,
-    }
-```
+def process(items: tuple[Item, ...]) -> tuple[Result, ...]:
+    logger.info("Processing %d items", len(items))
+    ...
 
-### Round-Trip Completeness
-
-All fields must survive a `serialize → deserialize → serialize` round-trip. When adding a new field to a data structure, update the serializer, the deserializer, and the round-trip tests. Incomplete coverage silently drops the field.
-
-### Non-Default Emission
-
-Formatters should emit only non-default fields for brevity. Parsers must accept both the full and abbreviated forms. The formatter emits the simplest valid representation; the parser accepts the most permissive.
-
----
-
-## 28. Nullable Numeric Parsing
-
-### The `or` Trap
-
-Never use `or` for nullable numeric fields where `0` is a valid value. Python's `or` treats `0`, `0.0`, and `""` as falsy, silently falling through to the alternative.
-
-```python
-# Wrong — silently replaces 0 with fallback
-width = data.get("width") or default_width
-# If data["width"] is 0, width becomes default_width
-
-# Right — explicit None check
-width = data.get("width")
-if width is None:
-    width = default_width
-```
-
-This applies to all parsed input (YAML, JSON, CLI args, database reads) where numeric fields may legitimately be zero.
-
-### Related: Empty String
-
-The same trap applies to string fields where empty string `""` is valid:
-
-```python
 # Wrong
-label = data.get("label") or "default"  # "" becomes "default"
+def process(items):
+    print(f"Processing {len(items)} items")
+    ...
+```
 
+### Levels
+
+| Level | When |
+|---|---|
+| `DEBUG` | Variable values, branches taken — developer detail |
+| `INFO` | Progress milestones — operator detail |
+| `WARNING` | Unexpected but recoverable (skip, fallback) |
+| `ERROR` | Failed but program continues (one item in batch) |
+| `CRITICAL` | Cannot continue |
+
+Don't `WARNING` on expected situations. Don't `INFO` per-item.
+
+---
+
+## Parsing nullable numerics
+
+### Never use `or` for numeric or string fields where `0`/`""` are valid
+
+```python
+# Right
+width = data.get("width_mm")
+if width is None:
+    width = DEFAULT_WIDTH_MM
+
+# Wrong
+width = data.get("width_mm") or DEFAULT_WIDTH_MM  # 0 silently → default
+```
+
+```python
 # Right
 label = data.get("label")
 if label is None:
     label = "default"
+
+# Wrong
+label = data.get("label") or "default"  # "" silently → "default"
 ```
+
+**Failure mode:** legitimate falsy values (0, 0.0, "") get silently replaced with defaults.
 
 ---
 
-## 29. Type System Conventions
+## Serializing data
 
-### Six Type Mechanisms
-
-Python offers several ways to constrain types. Each has a specific use case — don't reach for the wrong one.
-
-| Mechanism | When to Use | Example |
-|-----------|------------|---------|
-| `Enum` with `auto()` | Internal identity types (value doesn't matter) | `Role.ADMIN`, `Status.ACTIVE` |
-| `Enum` with string values | Serialized or user-facing values | `Mode("fast")`, `Verdict("pass")` |
-| `Literal[...]` | Inline field constraints on dataclass fields | `side: Literal["left", "right"]` |
-| Constants class | String keys for dict lookup and dispatch | `class FeatureType: POCKET = "pocket"` |
-| Pipe union (`A \| B`) | Sum types at module level | `Event = Click \| Hover \| Scroll` |
-| `@runtime_checkable Protocol` | Structural subtyping interfaces | `class Handler(Protocol): def handle(self) -> None: ...` |
-
-### Choosing Between Enum, Literal, and Constants
-
-- **Enum**: When you need the value to be a first-class object with identity, iteration, and membership testing (`if role in Role`). When adding a new variant requires a new code path.
-- **Literal**: When constraining a single field on a dataclass. Lighter than Enum — no import, no class. Best for 2–4 values that won't grow.
-- **Constants class**: When string values are used as dict keys for dispatch or lookup. Constants are just strings with names — they don't create a type, but they prevent typos and enable IDE navigation.
-
-### Protocol Over ABC
-
-When defining an interface, prefer `@runtime_checkable Protocol` over `ABC`. Protocols use structural subtyping — any class with the right methods satisfies the protocol without inheriting from it. This is more Pythonic and avoids coupling through inheritance.
+### `to_dict()` serializes every non-private field
 
 ```python
-# Prefer — structural subtyping
-@runtime_checkable
-class Handler(Protocol):
-    def handle(self, event: Event) -> Result: ...
+# Right
+def to_dict(self):
+    return {
+        "name": self.name,
+        "width_mm": self.width_mm,
+        "height_mm": self.height_mm,
+    }
 
-# Avoid (unless you need shared implementation) — nominal subtyping
-class Handler(ABC):
-    @abstractmethod
-    def handle(self, event: Event) -> Result: ...
+# Wrong (silent omission)
+def to_dict(self):
+    return {
+        "name": self.name,
+        "width_mm": self.width_mm,
+        # height_mm dropped
+    }
 ```
 
----
+If a field is intentionally omitted, document the omission at the serialization site.
 
-## 30. Dataclass Field Ordering
+### Round-trip completeness
 
-### Strict Field Order
+Every field survives `serialize → deserialize → serialize`. When adding a field, update serializer, deserializer, and round-trip test in the same change.
 
-Dataclass fields follow a consistent ordering convention. This makes constructors predictable and prevents `TypeError` from fields-without-defaults preceding fields-with-defaults.
+### Formatter emits non-default fields; parser accepts both forms
 
-1. **Required fields** (no default) — the essential identity of the object
-2. **Optional typed fields** (`field: Type | None = None`) — present or absent
-3. **Factory-default fields** (`field(default_factory=...)`) — complex defaults
-4. **Scalar defaults** (`field: Type = value`) — simple defaults
+The formatter produces the simplest valid representation. The parser accepts the most permissive.
+
+### Round-trip tests assert on semantic equivalence
 
 ```python
-@dataclass(frozen=True)
-class Feature:
-    # 1. Required
-    name: str
-    width_mm: float
-    height_mm: float
+# Right
+assert parse(serialize(model)) == model
 
-    # 2. Optional
-    description: str | None = None
-    parent_id: str | None = None
-
-    # 3. Factory defaults
-    tags: tuple[str, ...] = field(default_factory=tuple)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    # 4. Scalar defaults
-    depth_mm: float = 1.0
-    enabled: bool = True
+# Wrong
+assert serialize(parse(input_text)) == input_text  # whitespace, key order
 ```
 
-### `with_*()` Helpers
+---
 
-When a frozen dataclass needs a common mutation pattern, provide a named helper that wraps `replace()`:
+## Output
+
+### Deterministic and byte-identical for same input
+
+Implements GL-4 (same input, same output).
+
+### Single conversion path per transformation
+
+For any input → output transformation, exactly one code path. Multiple paths diverge.
+
+### Output must be valid per its format spec
+
+Malformed output is a bug here, not the consumer's problem.
+
+### Writes to durable state: idempotent, atomic, durable
+
+Three separable concerns. Pick which apply per write.
+
+- **Idempotent** — running the operation twice produces the same final state as running it once. Required by GL-6.
+- **Atomic** — partial state is never visible to readers. Achieved by writing to a temp file in the same directory, then `os.replace()`.
+- **Durable** — the write survives a crash or power loss. Requires `fsync()` on the file (and the containing directory on POSIX).
 
 ```python
-def with_tags(self, *new_tags: str) -> Feature:
-    return replace(self, tags=self.tags + new_tags)
+# Right (idempotent + atomic + durable)
+def write_output(path: Path, data: bytes) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("wb") as f:
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+    dir_fd = os.open(path.parent, os.O_DIRECTORY)
+    try:
+        os.fsync(dir_fd)
+    finally:
+        os.close(dir_fd)
+
+# Right (idempotent + atomic, no durability requirement)
+def write_output(path: Path, data: bytes) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(data)
+    os.replace(tmp, path)
+
+# Wrong (mid-crash leaves a partial file at the destination)
+def write_output(path: Path, data: bytes) -> None:
+    with path.open("wb") as f:
+        f.write(data)
 ```
 
-This makes the call site readable and keeps the `replace()` boilerplate in one place.
+Use `os.replace()`, not `Path.rename()` — `os.replace()` is atomic across platforms; `rename()` raises on Windows if the destination exists.
 
 ---
 
-## 31. The Amendment Culture
+## Writing tests
 
-These guidelines are not immutable. But they can't be ignored, either. The process for change:
+### Test the contract, not the implementation
 
-1. If a guideline blocks your work, **stop**
-2. Determine if the guideline is wrong or your approach is wrong
-3. If the guideline needs to change, change it explicitly with rationale
-4. Never work around a guideline locally — that creates invisible technical debt
+Agents refactoring code preserve what tests pin and freely change what they don't. Pin behavior; the implementation is what gets rewritten.
 
-The goal is a codebase where every rule is either followed or explicitly amended. The worst state is a rule that exists on paper but is routinely ignored — that's worse than having no rule at all.
+### Test at the right level — usually the IR, not the full pipeline
+
+```python
+# Right
+model = parse_and_validate(input)
+assert model.items[0].width_mm == 100
+
+# Wrong
+output = full_pipeline(input)
+assert "expected_string" in output
+```
+
+### Don't test what Python guarantees
+
+```python
+# Wrong (tests @dataclass, not project code)
+def test_frozen():
+    spec = Config(value=10)
+    with pytest.raises(FrozenInstanceError):
+        spec.value = 20
+
+def test_replace():
+    modified = replace(Config(value=10), value=20)
+    assert modified.value == 20
+```
+
+Test construction only when `__post_init__` validation exists.
+
+### Round-trip on semantics, not syntax
+
+```python
+# Right
+assert parse(serialize(model)) == model
+
+# Wrong
+assert serialize(parse(text)) == text
+```
+
+### No duplicate coverage
+
+Before adding a test file, check whether existing tests cover the same code paths.
+
+### Use the framework
+
+No `if __name__ == "__main__"` runners, no `print("PASS")`, no `return True` from test functions, no `sys.path` manipulation. pytest collects.
 
 ---
 
-## Related Documents
+## Comments
 
-| Document | Purpose |
-|----------|---------|
-| [README.md](README.md) | Bootstrap guide for new projects |
-| [enforcement_matrix.md](enforcement_matrix.md) | Maps each guideline to its enforcement mechanism |
+### Encode why, never what
+
+A comment is for non-obvious context: a hidden constraint, a workaround for a specific bug, behavior that would surprise a reader.
+
+### Never name current state
+
+```python
+# Wrong (rots)
+# TODO: refactor this
+# Used by the import flow added for issue #42
+# Old behavior; new behavior in process_v2
+
+# Right (no comment needed; the code says what it does)
+```
+
+### Never comment on what code does when names already say it
+
+If you need a comment to explain what the code does, rename until you don't.
+
+---
+
+## Dead code
+
+Don't leave commented-out code, unused imports, backward-compat shims for removed features, or `# removed` markers. Delete unused code; version control remembers.
+
+---
+
+## Safety-critical constraints
+
+When violation causes real harm (data loss, hardware damage, security breach):
+
+- **Hard error on violation** — never warn-and-continue
+- **Post-execution verification** — check the output respects the constraint; don't trust the generation logic
+- **Cited in invariants** — mark the safety level explicitly
+
+---
+
+## Cross-reference: invariants implemented
+
+| Invariant | Sections that implement it |
+|---|---|
+| GL-1 (pipelines do not re-enter or escape scope) | Compiler-pattern conventions (`conventions/pattern/compiler/python.md`) |
+| GL-2 (non-deterministic output carries provenance) | (project-layer; not codified here) |
+| GL-3 (data is immutable by default) | Declaring a dataclass, Modifying a frozen dataclass |
+| GL-4 (same input, same output) | Writing a function that transforms data, Output |
+| GL-5 (failures carry context) | Raising an error, Validating data; per-layer rules in batch-pipeline conventions (`conventions/pattern/batch-pipeline/python.md`) |
+| GL-6 (writes to durable state are idempotent) | Output |
+
+## Pattern and domain extensions
+
+| File | When it applies |
+|---|---|
+| `conventions/pattern/compiler/python.md` | Project declares the Compiler pattern |
+| `conventions/pattern/batch-pipeline/python.md` | Project's pipeline tolerates per-item failures and reports them |
+| `conventions/domain/cad-cam/python.md` | Project has geometry, units, or hardware output |

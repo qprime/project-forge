@@ -3,158 +3,280 @@
 **Status:** Exploration. Not canonical.
 **Started:** 2026-04-23
 
-Notes toward a significant refactor of project-forge. Fleshed out as we go.
+Notes toward a refactor of project-forge. Updated as the design is clarified.
 
 ---
 
 ## What project-forge is
 
-**Project-forge is a hybrid runtime project that creates patterned hybrid runtime projects based on an initial design spec.**
+Project-forge creates projects from a design spec.
 
-Recursive: forge is an instance of the thing it produces. FG-5 (self-bootstrap) is this property restated.
+Each project combines:
 
-### Vocabulary
+- deterministic code
+- LLM-driven behavior
+- human input
 
-- **Project** (shorthand) — what `registry/projects.yaml` tracks
-- **Hybrid runtime project** (formal) — dev-env and run-env share an environment; humans, LLMs, and deterministic code are co-resident actors; most have a deterministic-runnable core that can be published as a conventional app/library/executable
-- **Pattern / patterns / patterned** — global term. Used in the Garlan & Shaw / POSA *architectural pattern* sense, not the GoF *design pattern* sense. "Architectural pattern" when full formality is needed; "pattern" everywhere else. `project_patterns_draft.md` owns the taxonomy.
+Most projects also produce a conventional output (executable, library, or service). Some remain purely hybrid (forge itself).
 
-### Publishing
+Forge is an instance of the system it creates. FG-5 (self-bootstrap) is this property restated.
 
-Most hybrid runtime projects have a deterministic-runnable core. **Publishing** = the operation that extracts that core into a conventional app/library/executable/service. Not every project publishes; some are pure hybrid runtimes (forge itself, arguably). Publishing is a defined feature of the refactor, not an afterthought.
+---
 
-Open: is publishing one operation or several (extract-to-executable, extract-to-library, extract-to-service)?
+## Core model
+
+Everything in a project is defined in three layers:
+
+1. **Global** — applies to all projects
+2. **Pattern** — applies to projects that declare a given pattern
+3. **Project** — specific to one project
+
+This model applies to skills, invariants, and guidelines.
+
+Layers 1 and 2 are baseline-owned. Layer 3 is produced per project, typically by an LLM against the project's spec.
 
 ---
 
 ## Scope
 
-Top-level areas the refactor needs to address. Filled in as we go.
+Areas this refactor covers:
 
-1. **Skills**
-2. **Invariants**
-3. **Guidelines** — could be code, writing rules, and possibly other types TBD
-4. **Patterns** — axis-based typology of project patterns; per-project manifest declared at bootstrap drives tailoring
-5. **Deployment, updates, and feedback** — bundled for now; may split into three
-6. *(more to come)*
+1. Skills
+2. Invariants
+3. Guidelines
+4. Patterns
+5. Deployment, updates, and feedback
+6. (more to come)
 
 ---
 
-## Cross-cutting: the three layers
+## Dogfooding
 
-Skills, Invariants, and Guidelines all stratify into the same three layers of scope:
+Forge uses its own global skills (architect, engineer, debug, review, spec, close-out). These must work against forge the same way they work against any other project.
 
-1. **Global** — applies to all hybrid runtime projects, regardless of pattern. Baseline-owned, universal.
-2. **Pattern-attached** — applies to all projects declaring a given pattern. Baseline-owned, selected by the project's pattern manifest. "Retrieval is deterministic dispatch" → every KB project.
-3. **Project-custom** — applies only to this project. Typically produced by LLM customization against the project's input spec / guidance doc. Not reusable across projects.
+Forge-specific skills (survey, drift, monitor, bootstrap, rebase, codex-sync, compare, status) operate on other projects. They skip the project layer and are not a test of the templating mechanism.
 
-Layers 1 and 2 are template-owned and standardized. Layer 3 is the customization step.
+Consequence: forge alone is not a sufficient test. New mechanisms must be validated against an external project before being declared general.
 
-**Empirical work to do:** audit existing skills, invariants, and guidelines and classify which layer each belongs in. Some will feel global but turn out to be pattern-attached; some will feel pattern-attached but are actually project-custom. This classification is how the template/customize split gets sharpened.
+---
 
 ## Skills
 
-**Skill** — a reusable prompt that triggers a consistent behavior from Claude. Every skill is produced by customizing a baseline-owned template against a specific project's declared pattern and context. The template enforces global standards; the customization layer adapts the skill to project specifics. A project carries only the skills appropriate to it.
+A skill is a prompt that produces consistent behavior from Claude.
 
-Commitments:
-- **Standards are global, expression is local.** Template owns what's non-negotiable; customization layer owns what bends per project.
-- **Pattern-driven selection.** Which skills a project gets is a function of its declared pattern, not a hand-picked list.
-- **Dogfooded.** Forge's own skills come from the same mechanism — no skill exists outside template + customize.
+Each skill is built from three parts, one per layer:
 
-Skills stratify into the three layers (Global / Pattern-attached / Project-custom). See *Cross-cutting: the three layers*.
+1. **Template** (global)
+   - defines structure
+   - defines the placeholders where content can vary
+   - lives in `skills/global/`
+2. **Pattern content** (pattern)
+   - fills placeholders for projects declaring this pattern
+   - same content applied to any such project produces the same result
+   - lives in `skills/pattern/<pattern>/`
+3. **Project content** (project)
+   - fills placeholders for this project only
+   - typically generated by an LLM from the project spec at bootstrap, or from current state at rebase
+   - lives in `skills/custom/` or per-project equivalent
 
-Sub-concerns:
-- Local vs distributed — which skills live in the project vs in baseline/consumers
-- Granularity of the standard/custom seam — may be section-level, may be statement-level; TBD
+Only the template defines placeholders. Pattern and project layers fill them; neither invents new structure.
+
+A project only includes the skills required by its pattern. Skill selection is not hand-picked.
+
+### Placeholder types
+
+Two types:
+
+- **Slot** — single value. One layer fills it; the value replaces the placeholder.
+  ```
+  You are an architect for {{DOMAIN}}
+  ```
+- **Insertion** — list or block. Zero or more layers contribute; contributions stack.
+  ```
+  ## What You Do
+  {{DOMAIN_BULLETS}}
+  ```
+
+Templates declare which type each placeholder is. Lower layers can only supply content of the right shape.
+
+For insertions with both pattern and project content: pattern first, project appended. Revisit once concrete cases force it.
+
+### Open
+
+- Placeholder granularity: section-level, bullet-level, or phrase-level. Current `architect.md` mixes all three. Needs a second skill worked through in detail before generalizing.
+- File format for pattern and project content. Deferred — shape before mechanism.
+- Projects declaring multiple patterns (e.g., `penumbra-poc` = Compiler + Declare-and-satisfy): ordering and conflict rules for insertions are unresolved.
 
 ---
 
 ## Invariants
 
-**Invariant** — a statement that must hold for the project to still be the project. Violation breaks the system — identity, correctness, or structural integrity. Logical and defensible, not preference-driven. "Registry is the single source of truth." "LLMs don't write into the KB corpus."
+An invariant is a rule that, if violated, breaks the project.
 
-Invariants are the guardrails that define the project as a hybrid runtime project. They're load-bearing claims — the system is designed *around* them.
+Examples:
 
-**Sorting test (counterfactual):** if this were violated, does the project still do its job?
-- Yes, just messier → convention (lives in Guidelines)
-- No, something essential is broken → invariant
+- registry is the source of truth (project-forge)
+- SimClock is the only time source on the execution path (relay)
+- generators are pure functions — same input, same output, no mutation (mill_ui)
+- every evaluation report embeds git SHA and dataset provenance; printed numbers must be reproducible from the report alone (penumbra-poc)
 
-Strength of feeling is not the test. A firmly-held preference is a convention, not an invariant. Don't promote on vibes.
 
-### Two layers (first cut; more may emerge)
 
-1. **Probabilistic-side invariants** — govern the LLM (and more broadly ML-driven) portions of the project. "LLMs don't write into the corpus." "Intent translation produces a persisted declarative artifact, not ephemeral state." "Synthesis must be grounded in what retrieval produced." These constrain how the non-deterministic layer is allowed to participate.
+### Types
 
-2. **Deterministic-side invariants** — govern the conventional code portions. "Registry is the single source of truth." "Dry-run before destructive operations." "No `shell=True`." Classical software invariants.
-
-The two fail differently:
-- Deterministic-side invariants are checkable by static analysis, tests, type systems.
-- Probabilistic-side invariants are mostly enforced by pipeline structure (gates, guardrails, post-oracles) because the code that executes them isn't deterministic.
-
-The most interesting invariants bridge the two — e.g., "LLM output must pass a deterministic check before proceeding." That bridge is where hybrid runtime projects are architecturally distinct from either classical apps or pure ML systems.
+- **LLM-side** — constrain how LLMs participate. Enforced by pipeline structure: gates, guardrails, post-oracles. Can't be checked by static analysis because the code executing them isn't deterministic.
+- **Code-side** — standard software constraints. Enforced by tests, types, static analysis.
+- **Bridge** — LLM output must pass a deterministic check before proceeding. This is where hybrid runtime projects are architecturally distinct from classical apps or pure ML systems.
 
 ### Layering
 
-Invariants stratify into the three layers (Global / Pattern-attached / Project-custom). See *Cross-cutting: the three layers*.
+Invariants follow the three-layer model (global / pattern / project).
 
 ---
 
 ## Guidelines
 
-**Convention / Guideline** — firm rules that make the project *ours*. Violation does not break the system; the project still works. Conventions are what give a codebase a single voice, consistent style, legible structure. They can be firm without being logically defensible as necessities — "because we agreed" is a valid reason, just a different kind of reason than an invariant has.
+Guidelines are rules for consistency. Breaking them does not break the system; the project still works.
 
-Guidelines are the space where conventions live.
+Two forms:
 
-### Two shapes
+- **Rule** — a single statement. "Commit messages start with a verb."
+- **Standard** — a body of rules, examples, and worked-through complexity that can't collapse to one statement. "Python coding standard."
 
-- **Statement-shaped convention** — expressible as a rule. "Commit messages start with a verb." Lives alongside invariants in form, differs in force.
-- **Body-shaped standard** — a body of rules, examples, and worked-through complexity that can't collapse to a single statement. "Python coding standard." Used when we want examples, or when the subject is too complex to state cleanly.
-
-A body-shaped standard can *contain* or *cite* invariants (e.g., a Python standard might embed "no `shell=True`"), but the standard itself is the scaffolding around rules, not the rules alone.
+A standard can contain or cite invariants (e.g., a Python standard embeds "no `shell=True`"), but the standard itself is the scaffolding around rules, not the rules alone.
 
 ### Types (so far)
 
-- Code guidelines — per-language or per-pattern conventions
-- Writing rules — prose, doc, commit-message style
-- *(more to come)*
+- Code guidelines — per-language or per-pattern
+- Writing rules — prose, docs, commit messages
+- (more to come)
 
 ### Layering
 
-Guidelines stratify into the three layers (Global / Pattern-attached / Project-custom). See *Cross-cutting: the three layers*.
+Guidelines follow the three-layer model (global / pattern / project).
 
 ---
 
 ## Patterns
 
-Substrate lives in `project_patterns_draft.md`. Axis-based typology: a project is described by its position on a small number of composable axes, with named patterns (Compiler, Declare-and-satisfy, KB, Bracketed-probabilistic) as shorthand for recurring combinations.
+A pattern defines a reusable project shape.
 
-Role in the refactor: a per-project sub-pattern manifest declared at bootstrap, so the baseline tailors capabilities, invariants, guidelines, and skills to the declared pattern.
+Each project declares its pattern(s). This determines:
 
-*(To be filled in — how the manifest is expressed, how it drives tailoring, per-subsystem patterns for hybrid projects.)*
+- which skills are included
+- which invariants apply
+- which guidelines apply
+
+Axis-based typology. A project is described by its position on a small number of composable axes, with named patterns (Compiler, Declare-and-satisfy, KB, Bracketed-probabilistic) as shorthand for recurring combinations.
+
+Details in `project_patterns_draft.md`.
 
 ---
 
-## Deployment, rebase, and feedback
+## Publishing
 
-*(To be filled in. Bundled provisionally; may split into three sections. Rough framing: deployment is the initial materialization of a project from forge; rebases are how an existing project picks up baseline changes; feedback is how observations from projects flow back to inform baseline evolution.)*
+Many projects produce a conventional output (executable, library, or service). Publishing is the step that extracts this output from the hybrid system.
+
+Publishing is a defined feature, not an afterthought.
+
+Open: one operation or several (extract-to-executable, extract-to-library, extract-to-service).
 
 ---
 
-## Related inputs (not the spine)
+## Deployment, updates, and feedback
 
-- `project_patterns_draft.md` — axis-based typology of project patterns. A driver, but not the organizing backbone of the refactor. Important and driving, but one piece of the puzzle.
+(To be defined.)
+
+- **Deployment** — initial creation of a project from forge
+- **Updates** — applying baseline changes to an existing project (rebase)
+- **Feedback** — using project outcomes to improve the baseline
 
 ---
 
 ## Open questions
 
-- Publishing: one operation or several?
-- Harness sorting edge cases and precedence rules
+- Publishing: one operation or multiple
+- Multiple patterns: how to merge contributions
+- File formats for pattern and project content
+- Input spec: strict vs inferred
 - Whether skill templating and bootstrap should share one mechanism
-- How input-spec fidelity is handled (clarify vs infer)
+- **Domain axis.** Patterns describe architectural shape (Compiler, KB, etc.). Some content (coordinate/unit discipline, hardware-output rules) is not pattern-shaped — it's domain-shaped (CAD/CAM, ML, infrastructure, web). A Compiler producing CAM output and an ML system producing toolpaths both want the same coordinate rules. Provisional decision: a `domain/` axis exists in `conventions/` for content that cuts across patterns. Open: does the same axis need to exist for invariants and skills, or is it conventions-only?
+- **Pattern naming.** "batch-pipeline" is a placeholder for the pattern that owns `conventions/pattern/batch-pipeline/`. Candidates: per-item-fault-tolerant, item-batch. Pin during pattern taxonomy review.
+
+## Layering-audit test
+
+For any global-layer file (`baseline/coding_guidelines.md`, `invariants/global.md`, etc.):
+
+> A section is global iff it applies to every project the file targets. If a counterexample exists in the registry — a real project for which the section is wrong, not-applicable, or actively misleading — the section is pattern-attached or domain-attached, not global.
+
+Run this test against any global file before declaring it canonical. When it fails:
+
+1. Identify which axis the section belongs on (pattern or domain).
+2. Move the section to the appropriate `conventions/pattern/<name>/` or `conventions/domain/<name>/` file.
+3. Update the global file's cross-reference table to point consumers at the extension.
+
+This test is the operational form of the four-shapes test for invariants, applied to guidelines.
 
 ---
 
 ## Next
 
-Work outward from the definition — likely next: what "patterned" means operationally (how the design spec determines the pattern), and what "creates" entails (bootstrap pipeline structure).
+Work through in order. Each step depends on the ones above it.
+
+- [ ] **1. Pin pattern declaration.** Define the file format, location, and contents of a project's pattern declaration. Unblocks the resolver.
+- [ ] **2. Spec the resolver.** Pseudocode for: read pattern declaration → walk template → fill placeholders from pattern + project layers → emit final file. Cover the multi-pattern case.
+- [ ] **3. Build resolver against forge itself.** Forge dogfoods — if the resolver produces forge's own skill files from the layered artifacts, the mechanism works for the dogfooded case.
+- [ ] **4. Bootstrap one external consumer.** mill_ui or relay. Exercises the project-layer customization step and surfaces the customization prompt's real failure modes.
+- [ ] **5. Address deferred questions.** Publishing shape, multi-pattern conflict rules, input-spec fidelity, domain axis for invariants/skills. Tractable only once mechanism exists.
+
+---
+
+## Appendix: choosing invariants
+
+Guidance for populating each invariant layer. Derived from scanning relay, penumbra-poc, mill_ui, and project-forge.
+
+### Four shapes invariants take
+
+1. **Single source.** Name the one source for each cross-cutting concern (time, truth, coordination, identity, config). "X is the only way to do Y." Multiple sources is the failure mode.
+2. **Fixed order and closure.** Pipelines have a fixed phase order and a closed scope of what each phase can touch. Sequence and scope, not just behavior.
+3. **Ephemeral vs persisted.** Separate and label which state is allowed to change and when. Purity, immutability, and artifact-vs-refit rules all live here.
+4. **Provenance at boundaries.** Where non-deterministic output (LLM, human) enters deterministic code, require evidence — git SHA, dataset ID, explicit dispatch keys.
+
+Good invariants are negative-space rules: what the system is *not allowed* to do.
+
+### Global layer
+
+Real, checkable invariants live in `invariants/global.md`. Two of the four shapes don't produce checkable rules at the global level — they produce *shape-tests* the customization prompt runs against the project:
+
+- **Single source per concern** — the prompt asks the project to name its single source for time, identity, config, truth, coordination. The project's answer becomes a project-layer invariant; the meta-rule itself is not a checkable global invariant.
+- **State labeling** — the prompt asks the project to label every piece of state ephemeral or persisted. The labels become project-layer invariants; the meta-rule itself is not checkable globally.
+
+The other two shapes do produce checkable global invariants — see GL-1 (fixed order and closure) and GL-2 (provenance at boundaries) in `invariants/global.md`.
+
+### Pattern layer
+
+The shape made concrete for a pattern. Every project declaring the pattern inherits these verbatim.
+
+- *Compiler:* AST-to-output conversion passes through a single IR. Generators are pure.
+- *KB:* LLMs do not write directly into the corpus. Retrieval is deterministic dispatch.
+- *Simulation:* A single clock source governs the execution path. Inter-actor coordination flows through one bus.
+- *ML-eval:* Train/cal/eval split by identity, not slice. Calibrators fit on train only.
+
+(Populate fully as patterns are worked through.)
+
+### Project layer — customization prompt
+
+Run against the project spec at bootstrap, and against current state at rebase.
+
+> Given the project spec and its declared pattern(s), identify project-specific invariants by working through each global shape:
+>
+> 1. **Single sources.** What cross-cutting concerns does this project have (time, truth, coordination, identity, config)? For each, name the single source. If none exists, flag it.
+> 2. **Fixed order and closure.** What pipelines does this project run? For each, state the phase order and what each phase is forbidden from doing.
+> 3. **Ephemeral vs persisted.** What state exists? Classify each as ephemeral or persisted. Flag any state whose class is ambiguous.
+> 4. **Provenance boundaries.** Where does LLM or human output enter deterministic code? For each crossing, state what provenance must travel with it.
+>
+> Output: a list of candidate invariants, each with (a) the global shape it instantiates, (b) the concrete rule, (c) the failure mode if violated. Mark any that duplicate a pattern invariant the project already inherits — those don't need restating.
+
+On rebase, diff the new output against the existing project-layer file; surface additions, removals, and drifted wording for human decision.
+
+**Feedback signal:** if a candidate project-layer invariant doesn't instantiate any global shape, the global list is incomplete. Raise it as a baseline proposal.

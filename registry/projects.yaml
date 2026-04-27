@@ -27,6 +27,7 @@ projects:
 
   cliff_ai:
     repo: qprime/cliff_ai
+    path: ~/cliff_ai
     tags: [python]
     description: AI management/memory framework — personal/business AI orchestration
     domains: [AI, orchestration]

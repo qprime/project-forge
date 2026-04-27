@@ -9,10 +9,10 @@ import yaml
 
 from forge.manifest import Manifest, load_manifest
 from forge.resolver import (
+    SLOT_INSERT_HEADER_RE,
     ResolverError,
-    _compose_skill,
-    _parse_contribution,
-    _read_text,
+    _fence_regions,
+    _in_fence,
     resolve,
 )
 
@@ -108,61 +108,6 @@ def _build_manifest(
     for n, s in secondaries:
         (project_root / s).mkdir(parents=True, exist_ok=True)
     return manifest_path
-
-
-# ---------------------------------------------------------------------------
-# Forge dogfood (negative test in v1)
-# ---------------------------------------------------------------------------
-
-
-def test_forge_dogfood_raises_on_unfilled_required_slots():
-    """Top-level resolve() raises on the first skill whose template has unfilled
-    required slots. Skills are composed in sorted order, so `architect` (with
-    `PERSONA_DOMAIN`) is the first to fail."""
-    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
-    with pytest.raises(ResolverError) as excinfo:
-        resolve(manifest, baseline_root=REPO_ROOT, project_root=REPO_ROOT)
-    msg = str(excinfo.value)
-    assert "slot 'PERSONA_DOMAIN' in architect" in msg
-    assert "no layer filled it" in msg
-
-
-def test_forge_dogfood_unfilled_slots_cover_each_skill():
-    """Walk each forge global skill independently and assert that the per-skill
-    `ResolverError` names a known unfilled slot. This is stricter than the
-    top-level dogfood test: it ensures every skill that should error does, and
-    that we know which slot stops each one. When #8 (full slot migration)
-    lands, this test should be deleted along with the negative dogfood test."""
-    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
-    expected_first_slot = {
-        "architect": "PERSONA_DOMAIN",
-        "engineer": "PROJECT_DESCRIPTION",
-        "spec": "ISSUE_TRACKER",
-    }
-    expected_clean = {"close-out", "debug", "review"}
-
-    global_dir = REPO_ROOT / "skills" / "global"
-    pattern_dir = REPO_ROOT / "skills" / "pattern" / manifest.primary_pattern
-    project_skills_dir = REPO_ROOT / manifest.resolution.skills_dir
-
-    seen: set[str] = set()
-    for skill_path in sorted(global_dir.glob("*.md")):
-        name = skill_path.stem
-        if "." in name:
-            continue
-        seen.add(name)
-        template = _read_text(skill_path)
-        pattern_contrib = _parse_contribution(pattern_dir / f"{name}.md")
-        project_contrib = _parse_contribution(project_skills_dir / f"{name}.custom.md")
-        if name in expected_clean:
-            _compose_skill(name, template, pattern_contrib, project_contrib)
-            continue
-        with pytest.raises(ResolverError) as excinfo:
-            _compose_skill(name, template, pattern_contrib, project_contrib)
-        msg = str(excinfo.value)
-        assert f"slot '{expected_first_slot[name]}' in {name}" in msg
-
-    assert seen == set(expected_first_slot) | expected_clean
 
 
 # ---------------------------------------------------------------------------
@@ -458,6 +403,132 @@ def test_block_boundary_handles_subheadings_and_multiline_bodies(tmp_path: Path)
     assert "the-x" in skill
     assert "## insert:" not in skill
     assert "## slot:" not in skill
+
+
+def test_h2_inside_body_does_not_terminate_block(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\n<!-- insert: section -->\n"
+    pattern_contrib = (
+        "## insert: section\n\n"
+        "## Subsection\n\n"
+        "Body content under the H2.\n"
+    )
+    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "## Subsection" in skill
+    assert "Body content under the H2." in skill
+
+
+def test_h2_inside_fenced_code_block_does_not_terminate_block(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\n<!-- insert: protocol -->\n"
+    pattern_contrib = (
+        "## insert: protocol\n\n"
+        "Post a comment shaped like:\n\n"
+        "```\n"
+        "## Implementation Summary\n\n"
+        "<description>\n"
+        "```\n\n"
+        "Trailing prose after the fence.\n"
+    )
+    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "## Implementation Summary" in skill
+    assert "Trailing prose after the fence." in skill
+    assert skill.count("```") == 2
+
+
+def test_multiple_inserts_with_internal_h2(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\n<!-- insert: first -->\n<!-- insert: second -->\n"
+    pattern_contrib = (
+        "## insert: first\n\n"
+        "## First Subhead\n\n"
+        "first body\n\n"
+        "## insert: second\n\n"
+        "## Second Subhead\n\n"
+        "second body\n"
+    )
+    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "## First Subhead" in skill
+    assert "first body" in skill
+    assert "## Second Subhead" in skill
+    assert "second body" in skill
+    assert skill.index("first body") < skill.index("## Second Subhead")
+    assert "second body" not in skill[: skill.index("## Second Subhead")]
+
+
+def test_slot_header_inside_fence_is_quoted_not_parsed(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\n<!-- insert: docs -->\n"
+    pattern_contrib = (
+        "## insert: docs\n\n"
+        "Authors declare slots like:\n\n"
+        "```\n"
+        "## slot: NESTED\n\n"
+        "value\n"
+        "```\n\n"
+        "End of docs.\n"
+    )
+    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "## slot: NESTED" in skill
+    assert "End of docs." in skill
+
+
+def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\n<!-- insert: mixed -->\n"
+    pattern_text = (
+        "## insert: mixed\r\n\r\n"
+        "## Sub\r\n\r\n"
+        "prose\r\n\r\n"
+        "```\r\n"
+        "## Implementation Summary\r\n"
+        "```\r\n\r\n"
+        "tail prose\r\n"
+    )
+    (baseline / "skills" / "global").mkdir(parents=True, exist_ok=True)
+    (baseline / "skills" / "global" / "tinyskill.md").write_text(
+        template, encoding="utf-8"
+    )
+    (baseline / "skills" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
+    (baseline / "skills" / "pattern" / "tiny" / "tinyskill.md").write_bytes(
+        pattern_text.encode("utf-8")
+    )
+    (baseline / "conventions" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
+    (baseline / "baseline").mkdir(parents=True, exist_ok=True)
+    (baseline / "baseline" / "coding_guidelines.md").write_text("# g\n", encoding="utf-8")
+    (baseline / "invariants").mkdir(parents=True, exist_ok=True)
+    (baseline / "invariants" / "global.md").write_text(
+        "## GL-1 — Foo\n\nrule\n", encoding="utf-8"
+    )
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "## Sub" in skill
+    assert "prose" in skill
+    assert "## Implementation Summary" in skill
+    assert "tail prose" in skill
 
 
 def test_resolved_project_is_frozen(tmp_path: Path):

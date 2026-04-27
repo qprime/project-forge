@@ -12,7 +12,7 @@ INSERT_RE = re.compile(r"^[ \t]*<!-- insert: ([A-Za-z][A-Za-z0-9_-]*) -->[ \t]*\
 SLOT_INSERT_HEADER_RE = re.compile(
     r"^## (slot|insert): ([A-Za-z][A-Za-z0-9_-]*)\s*$", re.MULTILINE
 )
-ANY_H2_RE = re.compile(r"^## ", re.MULTILINE)
+FENCE_LINE_RE = re.compile(r"^(`{3,})[^\n]*$", re.MULTILINE)
 INVARIANT_ID_RE = re.compile(r"^## ((?:GL|FG|[A-Z]{2,4})-\d+) —", re.MULTILINE)
 
 
@@ -199,15 +199,16 @@ def _parse_contribution(path: Path) -> _Contribution:
     slots: dict[str, str] = {}
     inserts: dict[str, str] = {}
 
-    headers = list(SLOT_INSERT_HEADER_RE.finditer(text))
+    fences = _fence_regions(text)
+    headers = [
+        m for m in SLOT_INSERT_HEADER_RE.finditer(text)
+        if not _in_fence(m.start(), fences)
+    ]
     for i, match in enumerate(headers):
         kind = match.group(1)
         name = match.group(2)
         body_start = match.end()
-        body_end = len(text)
-        next_h2 = ANY_H2_RE.search(text, body_start + 1)
-        if next_h2 is not None:
-            body_end = next_h2.start()
+        body_end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
         body = _normalize_block(text[body_start:body_end])
         if body == "":
             continue
@@ -216,6 +217,32 @@ def _parse_contribution(path: Path) -> _Contribution:
         else:
             inserts[name] = body
     return _Contribution(slots=slots, inserts=inserts, source=path)
+
+
+def _fence_regions(text: str) -> list[tuple[int, int]]:
+    regions: list[tuple[int, int]] = []
+    opener: re.Match[str] | None = None
+    for m in FENCE_LINE_RE.finditer(text):
+        if opener is None:
+            opener = m
+            continue
+        closer_ticks = m.group(1)
+        info = m.group(0)[len(closer_ticks):]
+        if len(closer_ticks) >= len(opener.group(1)) and info.strip() == "":
+            regions.append((opener.start(), m.end()))
+            opener = None
+    if opener is not None:
+        regions.append((opener.start(), len(text)))
+    return regions
+
+
+def _in_fence(pos: int, fences: list[tuple[int, int]]) -> bool:
+    for start, end in fences:
+        if start <= pos < end:
+            return True
+        if pos < start:
+            return False
+    return False
 
 
 def _normalize_block(body: str) -> str:

@@ -15,6 +15,7 @@ from forge.resolver import (
     ResolverError,
     _fence_regions,
     _in_fence,
+    _is_paragraph_embedded,
     resolve,
 )
 
@@ -144,6 +145,28 @@ def _authored_probes(contribution_path: Path) -> list[tuple[str, str, str]]:
     return out
 
 
+def _paragraph_embedded_slots(template: str) -> list[tuple[str, str | None, str]]:
+    """For each paragraph-embedded slot in `template`, return (name, default,
+    suffix). Suffix is the literal template text from immediately after the
+    placeholder to whichever comes first: end-of-line, the next `{{` (another
+    placeholder), or EOF. It is what must directly follow the substituted
+    value in correctly composed output for the paragraph to be intact."""
+    out: list[tuple[str, str | None, str]] = []
+    for match in PLACEHOLDER_RE.finditer(template):
+        if not _is_paragraph_embedded(template, match.start(), match.end()):
+            continue
+        name = match.group(1)
+        default = match.group(2)
+        end = match.end()
+        line_end = template.find("\n", end)
+        next_placeholder = template.find("{{", end)
+        candidates = [c for c in (line_end, next_placeholder) if c != -1]
+        boundary = min(candidates) if candidates else len(template)
+        suffix = template[end:boundary]
+        out.append((name, default, suffix))
+    return out
+
+
 def test_forge_dogfood_resolves_cleanly():
     """Forge resolves itself cleanly against its own baseline (FG-5).
 
@@ -166,6 +189,8 @@ def test_forge_dogfood_resolves_cleanly():
 
     project_skills_dir = REPO_ROOT / manifest.resolution.skills_dir
 
+    global_dir = REPO_ROOT / "skills" / "global"
+
     for name, body in out.skills.items():
         assert body, f"composed skill {name!r} is empty"
         assert PLACEHOLDER_RE.search(body) is None, (
@@ -180,6 +205,39 @@ def test_forge_dogfood_resolves_cleanly():
             assert probe in body, (
                 f"composed {name!r}: {kind} {slot_name!r} authored content "
                 f"missing — probe {probe!r} not found in output"
+            )
+
+        template = (global_dir / f"{name}.md").read_text(encoding="utf-8")
+        contrib_path = project_skills_dir / f"{name}.custom.md"
+        contrib_slots: dict[str, str] = {}
+        if contrib_path.is_file():
+            contrib_text = contrib_path.read_text(encoding="utf-8")
+            fences = _fence_regions(contrib_text)
+            headers = [
+                m for m in SLOT_INSERT_HEADER_RE.finditer(contrib_text)
+                if not _in_fence(m.start(), fences)
+            ]
+            for i, h in enumerate(headers):
+                if h.group(1) != "slot":
+                    continue
+                body_start = h.end()
+                body_end = headers[i + 1].start() if i + 1 < len(headers) else len(contrib_text)
+                value = contrib_text[body_start:body_end].strip()
+                if value:
+                    contrib_slots[h.group(2)] = value
+
+        for slot_name, default, suffix in _paragraph_embedded_slots(template):
+            value = contrib_slots.get(slot_name, default)
+            if value is None or not suffix:
+                continue
+            value = value.strip()
+            assert f"{value}{suffix}" in body, (
+                f"composed {name!r}: paragraph-embedded slot {slot_name!r} "
+                f"broken — expected {value!r}{suffix!r} adjacent in output"
+            )
+            assert f"{value}\n{suffix.lstrip()}" not in body, (
+                f"composed {name!r}: paragraph-embedded slot {slot_name!r} "
+                f"broke paragraph — found newline between value and suffix"
             )
 
 
@@ -626,6 +684,75 @@ def test_authored_probes_is_fence_aware(tmp_path: Path):
     names = [name for _, name, _ in probes]
     assert names == ["real_one", "real_two"]
     assert "quoted_in_fence" not in names
+
+
+def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
+    """Discrimination test: a single template with one paragraph-embedded slot
+    and one top-of-section slot. Paragraph-embedded site must compose without
+    a stray newline; top-of-section site must keep its newline so the
+    paragraph that follows does not run on. A fix that strips unconditionally
+    fails the section assertion; a fix that never strips fails the embedded
+    assertion."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = (
+        "# T\n\n"
+        "Read (a) X, (b) {{EMBEDDED=default-clause}}, and (c) Y.\n\n"
+        "{{SECTION=section-default}}\n\n"
+        "Trailing paragraph.\n"
+    )
+    _build_baseline(baseline, skill_template=template)
+    manifest_path = _build_manifest(project)
+    _write(
+        project / ".claude" / "commands" / "tinyskill.custom.md",
+        "## slot: EMBEDDED\n\nembedded-value\n\n## slot: SECTION\n\nsection-value\n",
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "Read (a) X, (b) embedded-value, and (c) Y." in skill
+    assert "section-value\n\n\nTrailing paragraph." in skill
+
+
+def test_paragraph_embedded_slot_default_path(tmp_path: Path):
+    """Same template, no contribution. The embedded site must compose with the
+    inline default unbroken — `_normalize_block` is not in the path, but the
+    substitution-time fix must still produce intact prose."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = (
+        "# T\n\n"
+        "Read (a) X, (b) {{EMBEDDED=default-clause}}, and (c) Y.\n\n"
+        "{{SECTION=section-default}}\n\n"
+        "Trailing paragraph.\n"
+    )
+    _build_baseline(baseline, skill_template=template)
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "Read (a) X, (b) default-clause, and (c) Y." in skill
+
+
+def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
+    """Placeholder on the last line of the template, with non-blank content on
+    the same line. EOF on the trailing side must be treated as paragraph-
+    embedded (newline stripped). Guards against a wrong implementation that
+    treats EOF as a blank line and so leaves the trailing newline intact."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    template = "# T\n\nClause: {{EMBEDDED=default-clause}}."
+    _build_baseline(baseline, skill_template=template)
+    manifest_path = _build_manifest(project)
+    _write(
+        project / ".claude" / "commands" / "tinyskill.custom.md",
+        "## slot: EMBEDDED\n\neof-value\n",
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "Clause: eof-value." in skill
+    assert "eof-value\n." not in skill
 
 
 def test_resolved_project_is_frozen(tmp_path: Path):

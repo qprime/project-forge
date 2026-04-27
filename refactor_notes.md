@@ -106,7 +106,7 @@ Pattern and project contributions are markdown files using `## slot: NAME` and `
 
 ### Open
 
-- Placeholder granularity: section-level, bullet-level, or phrase-level. Current `architect.md` mixes all three. Needs a second skill worked through in detail before generalizing.
+- Placeholder granularity: phrase-level resolved by issue #12 (paragraph-embedded slot substitution; demonstrated by `INVARIANT_READ_TARGETS` in `spec.md` step 1). Bullet-level and section-level remain unvalidated and need a second skill worked through in detail before generalizing.
 - Multi-pattern composition for **scoped** artifacts (per-subsystem files). v1 stance for root-scope artifacts is settled (#7: secondary patterns warn-and-ignore); scoped composition lands when the first consumer needs it.
 
 ---

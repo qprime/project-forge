@@ -102,14 +102,19 @@ def _compose_skill(
         name = match.group(1)
         default = match.group(2)
         if name in project.slots:
-            return project.slots[name]
-        if name in pattern.slots:
-            return pattern.slots[name]
-        if default is not None:
-            return default
-        raise ResolverError(
-            f"slot {name!r} in {skill}: no layer filled it; no inline default"
-        )
+            value = project.slots[name]
+        elif name in pattern.slots:
+            value = pattern.slots[name]
+        elif default is not None:
+            value = default
+        else:
+            raise ResolverError(
+                f"slot {name!r} in {skill}: no layer filled it; no inline default"
+            )
+        if _is_paragraph_embedded(match.string, match.start(), match.end()):
+            if value.endswith("\n"):
+                value = value[:-1]
+        return value
 
     filled = PLACEHOLDER_RE.sub(slot_sub, template)
 
@@ -243,6 +248,28 @@ def _in_fence(pos: int, fences: list[tuple[int, int]]) -> bool:
         if pos < start:
             return False
     return False
+
+
+def _is_paragraph_embedded(template: str, start: int, end: int) -> bool:
+    line_start = template.rfind("\n", 0, start) + 1
+    line_end = template.find("\n", end)
+    if line_end == -1:
+        line_end = len(template)
+    before = template[line_start:start]
+    after = template[end:line_end]
+    if before.strip() != "" or after.strip() != "":
+        return True
+    prev_line_end = line_start - 1
+    next_line_start = line_end + 1
+    prev_blank = prev_line_end < 0 or template[:prev_line_end].rsplit("\n", 1)[-1].strip() == ""
+    if next_line_start >= len(template):
+        next_blank = True
+    else:
+        nl = template.find("\n", next_line_start)
+        if nl == -1:
+            nl = len(template)
+        next_blank = template[next_line_start:nl].strip() == ""
+    return not prev_blank and not next_blank
 
 
 def _normalize_block(body: str) -> str:

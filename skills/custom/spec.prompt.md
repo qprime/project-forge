@@ -27,6 +27,14 @@ A markdown file. Include only sections with real content.
 
 The target for the spec output. Typical values: `GitHub issue`, `Linear ticket`, `internal spec document`. Default: `GitHub issue`.
 
+Paragraph-embedded slot — write a single-line phrase that fits in flow.
+
+## slot: INVARIANT_READ_TARGETS
+
+Names the invariant files step 1 of Process tells the spec author to read. Typical shape: `` `docs/invariants/global.md` plus any subsystem invariant file touched by the change ``. Default: `all invariant files that govern the affected code paths`.
+
+Paragraph-embedded slot — write a single-line phrase. Use backticks for file paths.
+
 ## insert: process-extras
 
 Additional process steps specific to this project. For example, projects with a research-heavy front-end may require a literature check; projects with strict data-gate rules may require a gate-check step.

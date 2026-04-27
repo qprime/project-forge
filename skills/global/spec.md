@@ -9,7 +9,7 @@ Draft a {{ISSUE_TRACKER}} implementation specification for: $ARGUMENTS
 
 ## Process
 
-1. **Research first.** Before drafting, read: (a) every file named in the feature request, (b) the implementation files of any named subsystem, (c) all invariant files that govern the affected code paths, and (d) existing tests covering those paths. List what you read in a short "Context loaded" block before drafting. Understand what exists before proposing changes.
+1. **Research first.** Before drafting, read: (a) every file named in the feature request, (b) the implementation files of any named subsystem, (c) {{INVARIANT_READ_TARGETS=all invariant files that govern the affected code paths}}, and (d) existing tests covering those paths. List what you read in a short "Context loaded" block before drafting. Understand what exists before proposing changes.
 
 2. **Draft the spec** using the section template below. Every section is required unless explicitly marked optional. Omit a section only if it genuinely does not apply.
 

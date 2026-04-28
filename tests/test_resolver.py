@@ -17,7 +17,8 @@ from forge.resolver import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FORGE_MANIFEST = REPO_ROOT / ".forge" / "manifest.yaml"
+SAMPLE_PROJECT = REPO_ROOT / "tests" / "fixtures" / "sample_project"
+SAMPLE_MANIFEST = SAMPLE_PROJECT / ".forge" / "manifest.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +115,12 @@ def _build_manifest(
 
 
 # ---------------------------------------------------------------------------
-# Forge dogfood (positive — FG-5 self-bootstrap)
+# Sample-project end-to-end (positive)
+#
+# `tests/fixtures/sample_project/` is a synthetic compiler-pattern project
+# that exercises the full pipeline against forge's real `skills/global/` and
+# `skills/pattern/compiler/`. It plays the role the forge dogfood test
+# previously did — a real, complete manifest driving composition end to end.
 # ---------------------------------------------------------------------------
 
 
@@ -160,18 +166,18 @@ def _paragraph_embedded_slots(template: str) -> list[tuple[str, str | None, str]
     return out
 
 
-def test_forge_dogfood_resolves_cleanly():
-    """Forge resolves itself cleanly against its own baseline (FG-5).
+def test_sample_project_resolves_cleanly():
+    """The sample project resolves cleanly against forge's baseline.
 
     The expected skill set is derived from `skills/global/*.md` so adding a
-    new global skill without a matching forge contribution surfaces here.
-    Every composed skill must be non-empty, contain no leftover slot
+    new global skill without a matching sample-project contribution surfaces
+    here. Every composed skill must be non-empty, contain no leftover slot
     placeholders or insert markers, and contain every authored slot/insert
-    body. The body-presence check is what makes the dogfood positive: a
+    body. The body-presence check is what makes this positive: a
     contribution whose content is silently dropped during composition fails
     here even though the structural checks pass."""
-    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
-    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=REPO_ROOT)
+    manifest = load_manifest(SAMPLE_MANIFEST, baseline_root=REPO_ROOT)
+    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=SAMPLE_PROJECT)
 
     expected = {
         f.stem
@@ -839,9 +845,9 @@ def test_orphaned_domain_bullets_contribution_errors(tmp_path: Path):
         resolve(manifest, baseline_root=baseline, project_root=project)
 
 
-def test_forge_architect_composes_clean_post_migration():
-    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
-    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=REPO_ROOT)
+def test_architect_composes_clean_post_migration():
+    manifest = load_manifest(SAMPLE_MANIFEST, baseline_root=REPO_ROOT)
+    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=SAMPLE_PROJECT)
     architect = out.skills["architect"]
     assert INSERT_RE.search(architect) is None
     assert "<!-- insert:" not in architect

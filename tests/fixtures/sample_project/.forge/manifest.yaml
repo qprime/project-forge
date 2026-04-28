@@ -1,0 +1,67 @@
+schema_version: 1
+
+patterns:
+  primary: compiler
+
+domains: []
+
+language: python
+python_version: "3.12"
+toolchain:
+  test: pytest
+  lint: ruff
+  type_check: pyright
+
+axes:
+  intent_translation: present-llm-mediated
+  declarative_artifact:
+    format: yaml
+    authorship: human-only
+    mutability: mutable-current
+  verification:
+    position: pre-gate
+    consequence: block
+  state: mutable-current
+  contract_surface: structured-data
+
+project_context:
+  description: "Synthetic compiler-pattern project used as the canonical end-to-end example for forge update. Not a real project — exists to drive resolver and CLI integration tests."
+
+resolution:
+  baseline_version: "2026-04-27"
+  skills_dir: .claude/commands/
+  invariants_dir: docs/invariants/
+  conventions_dir: docs/conventions/
+
+customizations:
+  architect:
+    slots:
+      PERSONA_DOMAIN: synthetic compiler design
+      PERSONA_UNDERSTANDING: how AST, IR, and codegen layers compose, and why direct AST-to-output conversion is a topology change rather than a local edit
+      PERSONA_MENTAL_MODEL: passes, IRs, generators, and the boundaries between them
+
+  engineer:
+    slots:
+      PROJECT_DESCRIPTION: a synthetic compiler-pattern fixture project
+      ENGINEER_UNDERSTANDING: AST construction, IR transformation, and codegen as pure functions
+    inserts:
+      do-bullets: |
+        - Keep generators pure — same input, same output, no hidden state
+        - Route all conversion through the IR; no direct AST-to-output paths
+      dont-bullets: |
+        - Don't put output-shape state on AST or IR dataclasses
+        - Don't migrate input validation downstream of the AST boundary
+
+  spec:
+    slots:
+      ISSUE_TRACKER: GitHub issue
+      INVARIANT_READ_TARGETS: "the relevant subsystem invariants for the layer being modified"
+
+  debug:
+    inserts:
+      domain-debugging: |
+        ## Synthetic-Compiler Debugging
+
+        When debugging issues in this fixture, check:
+        - **Layer attribution** — is the bug in parsing/AST, IR transformation, or codegen?
+        - **Generator purity** — does the same input produce the same output across calls?

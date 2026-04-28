@@ -36,14 +36,6 @@ Forge reads other projects freely. It writes to other projects only during expli
 
 ---
 
-## FG-5: Self-Bootstrap
-
-**Classification:** STRUCTURAL
-
-Forge must be bootstrappable from a cold start using only its own baseline files. No external dependency for self-setup.
-
----
-
 ## FG-6: No-Stale-Pointers
 
 **Classification:** POLICY

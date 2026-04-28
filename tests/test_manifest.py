@@ -14,7 +14,7 @@ from forge.manifest import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FORGE_MANIFEST = REPO_ROOT / ".forge" / "manifest.yaml"
+SAMPLE_MANIFEST = REPO_ROOT / "tests" / "fixtures" / "sample_project" / ".forge" / "manifest.yaml"
 
 
 VALID_MINIMAL = {
@@ -59,21 +59,22 @@ def write_manifest(project: Path, payload: dict) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Dogfood: forge's own manifest must load against forge's own baseline
+# Sample project: the canonical end-to-end manifest must load against the
+# baseline (forge's `skills/global/` and `skills/pattern/`).
 # ---------------------------------------------------------------------------
 
 
-def test_forge_own_manifest_loads():
-    m = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
+def test_sample_manifest_loads():
+    m = load_manifest(SAMPLE_MANIFEST, baseline_root=REPO_ROOT)
     assert isinstance(m, Manifest)
     assert m.schema_version == 1
-    assert m.primary_pattern == "bootstrap-source"
+    assert m.primary_pattern == "compiler"
     assert m.language == "python"
     assert m.python_version == "3.12"
 
 
 def test_manifest_is_frozen():
-    m = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
+    m = load_manifest(SAMPLE_MANIFEST, baseline_root=REPO_ROOT)
     with pytest.raises(Exception):
         m.primary_pattern = "other"  # type: ignore[misc]
 

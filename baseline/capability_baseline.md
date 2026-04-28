@@ -246,15 +246,6 @@ Selected based on project tags. Some have dependencies on other capabilities.
 - Cross-persona findings get synthesized — contradictions are surfaced, not hidden
 - Persona outputs follow their defined format structure
 
-### Baseline-Dogfooding `[bootstrap-source]`
-
-*The baseline eats its own cooking.*
-
-- This repo's own configuration must be expressible in its own baseline
-- New tags or capabilities discovered during self-bootstrap get added to the baseline
-- Skill templates in the baseline must match the canonical versions in this repo's commands
-- Changes to the baseline trigger a self-rebase check
-
 ---
 
 ## Dependency Graph
@@ -271,8 +262,6 @@ Infrastructure-Safety ← Tool-Codification (ops become tools)
 Investigate-First ← Trace-Debug (assumes you investigated)
 
 Document-Integrity ← Voice-Enforcement (voice rules assume corpus consistency)
-
-Baseline-Dogfooding (standalone — self-referential check)
 ```
 
 When a capability is selected, its dependencies are automatically included.
@@ -307,7 +296,6 @@ Skills are built from capabilities. The translation layer selects capabilities a
 - Document-Integrity `[doc-corpus]`
 - Voice-Enforcement `[doc-corpus]`
 - Persona-Consistency `[multi-persona]`
-- Baseline-Dogfooding `[bootstrap-source]`
 
 **Domain framing:**
 - mill_ui: "CAM engineer" — CNC machining, toolpath generation, manufacturing constraints
@@ -364,7 +352,6 @@ Skills are built from capabilities. The translation layer selects capabilities a
 - Hardware-Safety `[hardware]` (physical constraint awareness)
 - Document-Integrity `[doc-corpus]` (structural and taxonomy analysis)
 - Persona-Consistency `[multi-persona]` (persona boundary and interaction analysis)
-- Baseline-Dogfooding `[bootstrap-source]` (baseline expressibility check)
 
 **Purpose:** Design thinking partner — tradeoff analysis, approach evaluation, structural questions. Conversational prose, not audit reports. Read-only.
 

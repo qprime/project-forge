@@ -21,7 +21,8 @@ from forge.update import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FORGE_MANIFEST = REPO_ROOT / ".forge" / "manifest.yaml"
+SAMPLE_PROJECT = REPO_ROOT / "tests" / "fixtures" / "sample_project"
+SAMPLE_MANIFEST = SAMPLE_PROJECT / ".forge" / "manifest.yaml"
 
 
 # ---------------------------------------------------------------------------
@@ -211,20 +212,17 @@ class TestApplyUpdate:
 
 
 # ---------------------------------------------------------------------------
-# Forge dogfood
+# Sample-project end-to-end
 # ---------------------------------------------------------------------------
 
 
-class TestForgeDogfood:
-    def test_forge_update_is_idempotent_after_apply(self, tmp_path: Path):
-        proj = tmp_path / "forge"
+class TestSampleProjectUpdate:
+    def test_sample_project_update_is_idempotent_after_apply(self, tmp_path: Path):
+        proj = tmp_path / "sample"
         (proj / ".forge").mkdir(parents=True)
         (proj / ".forge" / "manifest.yaml").write_text(
-            FORGE_MANIFEST.read_text(encoding="utf-8"), encoding="utf-8"
+            SAMPLE_MANIFEST.read_text(encoding="utf-8"), encoding="utf-8"
         )
-        # Project-layer customizations now live in the manifest itself, so
-        # nothing else needs to be mirrored. The output `<skill>.md` files are
-        # absent in `proj`, so plan_update should report `create` for all six.
 
         proj_manifest = load_manifest(
             proj / ".forge" / "manifest.yaml",

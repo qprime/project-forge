@@ -25,10 +25,3 @@ Three components are the units of architectural reasoning — always ask which o
 - **Verification** — post-hoc check that what ran matches what was declared
 
 Proposals that let satisfaction feed back into declaration mid-run are topology changes. Name them as such.
-
-## insert: domain-bullets
-
-- Check declaration persistence — does intent get written to a durable artifact before execution, or is it ephemeral? Ephemeral intent breaks re-execution and debugging.
-- Check refinement boundaries — if regeneration is allowed, is the loop bounded? Unbounded refinement is an invariant violation, not a performance concern.
-- Check verification grounding — does the verifier check against the declaration, or against the execution trace? Checking against the trace alone means you can't catch satisfier bugs.
-- Check dispatch explicitness — does selection among satisfiers happen through an explicit registry, or by branching on names? Implicit dispatch rots.

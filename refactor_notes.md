@@ -95,8 +95,8 @@ Two types:
   ```
 - **Insertion** — list or block. Zero or more layers contribute; contributions stack. HTML-comment form: `<!-- insert: NAME -->`.
   ```
-  ## What You Do
-  <!-- insert: domain-bullets -->
+  ## Investigate Before Opining
+  <!-- insert: investigate-anchors -->
   ```
 
 Templates declare which type each placeholder is. Lower layers can only supply content of the right shape.
@@ -105,10 +105,16 @@ For insertions with both pattern and project content: pattern first, project app
 
 Pattern and project contributions are markdown files using `## slot: NAME` and `## insert: NAME` headers. A block runs to the next `## slot:` or `## insert:` header or EOF — *not* every `## ` heading; body H2s and `## ` lines inside fenced code blocks are content, not boundaries. Empty bodies fall through (pattern wins over an empty project block; there is no "fill with empty" form). Pinned in #7; boundary-detection tightened in #13.
 
+### Persona precedence
+
+During skill invocation (`/architect`, `/engineer`, `/review`, etc.), the skill's persona governs. The project's CLAUDE.md persona applies to ambient work — refactor planning, registry/baseline reasoning, conversational requests with no slash command. Skill personas are baseline-owned and portable; the CLAUDE.md persona is project-local. Structural concerns surface through `investigate-anchors` (read with these in mind), not as a checklist — the architect surface stays conversational, `/review` carries the checklist shape. (Pinned in #17, which removed an earlier `domain-bullets` insertion that contradicted this on the architect skill.)
+
 ### Open
 
 - Placeholder granularity: phrase-level **pinned** in #12 (paragraph-embedded slot substitution against `spec.md` as the second skill — `INVARIANT_READ_TARGETS` in step 1 is the worked example). Bullet-level and section-level remain unvalidated; they need an external project to exercise shapes forge doesn't have in tree.
 - Multi-pattern composition for **scoped** artifacts (per-subsystem files). v1 stance for root-scope artifacts is settled (#7: secondary patterns warn-and-ignore); scoped composition lands when the first consumer needs it.
+- `skills/custom/` naming post-#14. The directory holds *authoring prompts* (`<skill>.prompt.md`) that generate project-layer content; project-layer content itself now lives in `<project>/.forge/manifest.yaml` `customizations:`. The "custom" name predates that move and reads as "custom skills" — neither what's in the directory nor what's in the manifest. Rename when a downstream confusion forces the issue.
+- `skills/forge/` as a fourth de-facto layer. Forge-only skills (bootstrap, survey, drift, monitor, etc.) sit beside `global/`, `pattern/`, `custom/` but bypass the three-layer model — they operate on other projects, not on forge. CLAUDE.md's `Key Directories` table omits them. Decide whether to name this layer (`meta/`, `host/`) or document the bypass explicitly.
 
 ---
 

@@ -42,7 +42,6 @@ This is not a full systematic review — that's `/review`. But your design advic
 - Check structural fit — does this design compose well with what exists?
 - Trace consequences — if we do X, what does that force downstream?
 - Challenge scope — is this solving the right problem? Is it solving too much?
-<!-- insert: domain-bullets -->
 
 **Think out loud.** Show your reasoning, not just your conclusions. The user needs to understand *why* so they can calibrate your advice against things you don't know.
 
@@ -53,6 +52,7 @@ This is not a full systematic review — that's `/review`. But your design advic
 - **Don't produce audit reports.** No triage gates, no finding tables, no "File These" buckets. That's `/review`.
 - **Don't review code for bugs.** Off-by-one errors and missing edge cases are `/review` territory. You care about whether the *design* is right, not whether the *implementation* has a typo.
 - **Don't make changes.** Read-only. The user decides what to act on.
+- **Don't author specs directly.** Drafting an issue, ticket, or implementation spec is `/spec`'s job. Hand off via the Design Summary or invoke `/spec`. Don't write the spec body inline or shell to `gh issue create`.
 - **Don't bikeshed.** If something is working and well-designed, don't go looking for problems. Spend your time on things that matter.
 
 ## How to Engage

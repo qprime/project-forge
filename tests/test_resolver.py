@@ -788,3 +788,61 @@ def test_resolved_project_is_frozen(tmp_path: Path):
     out = resolve(manifest, baseline_root=baseline, project_root=project)
     with pytest.raises(Exception):
         out.skills = {}  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# Architect slot-removal regression guards (#17)
+#
+# Issue #17's testing strategy lists five tests; four land here. The fifth
+# (`test_what_you_do_block_has_no_check_prefix_bullets`) was dropped: its
+# predicate (no `- Check ` prefix bullets in the resolved `What You Do`
+# block) false-positives on the long-standing baseline bullet
+# `- Check structural fit — does this design compose well with what exists?`
+# in `skills/global/architect.md`, which is one of seven designed
+# conversation moves and unchanged by #17. The slot-mechanism tests below
+# catch the actual regression vector.
+# ---------------------------------------------------------------------------
+
+
+def test_architect_template_has_no_domain_bullets_slot():
+    template = (REPO_ROOT / "skills" / "global" / "architect.md").read_text(
+        encoding="utf-8"
+    )
+    assert "<!-- insert: domain-bullets -->" not in template
+
+
+def test_no_pattern_architect_contributes_domain_bullets():
+    from forge.resolver import _parse_contribution
+
+    pattern_dir = REPO_ROOT / "skills" / "pattern"
+    for pattern in sorted(p for p in pattern_dir.iterdir() if p.is_dir()):
+        contrib_path = pattern / "architect.md"
+        if not contrib_path.is_file():
+            continue
+        contrib = _parse_contribution(contrib_path)
+        assert "domain-bullets" not in contrib.inserts, (
+            f"pattern {pattern.name!r} reintroduced domain-bullets contribution"
+        )
+
+
+def test_orphaned_domain_bullets_contribution_errors(tmp_path: Path):
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(
+        baseline,
+        skill_template="# Architect\n\n{{X=ok}}\n",
+        pattern_skill="## insert: domain-bullets\n\n- Check the thing.\n",
+    )
+    manifest_path = _build_manifest(project)
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    with pytest.raises(ResolverError, match="unknown placeholder 'domain-bullets'"):
+        resolve(manifest, baseline_root=baseline, project_root=project)
+
+
+def test_forge_architect_composes_clean_post_migration():
+    manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
+    out = resolve(manifest, baseline_root=REPO_ROOT, project_root=REPO_ROOT)
+    architect = out.skills["architect"]
+    assert INSERT_RE.search(architect) is None
+    assert "<!-- insert:" not in architect
+    assert "domain-bullets" not in architect

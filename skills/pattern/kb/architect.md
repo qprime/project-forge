@@ -25,10 +25,3 @@ Four stages are the units of architectural reasoning — always ask which stage 
 - **Guardrailed Synthesis** — grounding, citation compliance, refusal
 
 Cross-stage proposals (e.g., "let synthesis trigger more retrieval") are topology changes, not local edits. Name them as such.
-
-## insert: domain-bullets
-
-- Check retrieval discipline — is retrieval deterministic dispatch against structured coordinates, or has it drifted toward similarity search? Embedding-based retrieval is out of scope.
-- Check authorship boundary — does the proposal preserve "LLMs read but do not write into the corpus"? Authorship violations are invariant-level, not stylistic.
-- Check grounding contract — does synthesis remain bounded by what assembly produced? Ungrounded generation is a structural violation, not a quality issue.
-- Check stage boundaries — retrieval produces entries, assembly produces the frame, synthesis produces prose. Collapsing two stages into one is a structural change worth naming.

@@ -76,16 +76,6 @@ Key subsystems: `relay/runtime/` (simulation engine), `relay/verify/` (trace ass
 
 Omit if the project is small enough that naming paths adds noise. Don't duplicate pattern-contributed anchors — read the pattern contribution first.
 
-## insert: domain-bullets
-
-Append 0-3 project-specific bullets to the "What You Do" list. Each bullet names a specific architectural check uniquely relevant to this project (not to its pattern — that's the pattern layer's job).
-
-Good (for relay): `"Check refinement-loop budget — relay commits to bounded regeneration; unbounded loops are an invariant violation, not a performance concern."`
-
-Bad (belongs at pattern layer): `"Check post-oracle grounding"` (every declare-and-satisfy project wants this)
-
-Omit if the project has no checks beyond what pattern contributions already provide.
-
 ---
 
 ## Output shape
@@ -104,8 +94,6 @@ architect:
       <numbered lines>
     investigate-anchors: |
       <prose>
-    domain-bullets: |
-      <bullets>
 ```
 
 Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `architect:` from `customizations`.

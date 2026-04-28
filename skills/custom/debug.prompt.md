@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # debug — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `debug` skill. The output fills named placeholders in `skills/global/debug.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `debug` skill. The output is a YAML fragment that fills named placeholders in `skills/global/debug.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `de
 
 ## Output
 
-A markdown file. Include only sections with real content.
+A YAML fragment to merge under `customizations.debug:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -70,34 +70,21 @@ Omit if `docs/invariants/` covers everything.
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: debug
----
+A YAML fragment for `customizations.debug:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies.
 
-# <project-name> — debug contribution
-
-## insert: working-style-extras
-
-<optional>
-
-## insert: do-bullets
-
-<optional bullets>
-
-## insert: dont-bullets
-
-<optional bullets>
-
-## insert: domain-debugging
-
-<optional section>
-
-## insert: invariant-files-extras
-
-<optional lines>
+```yaml
+debug:
+  inserts:
+    working-style-extras: |
+      <prose>
+    do-bullets: |
+      <bullets>
+    dont-bullets: |
+      <bullets>
+    domain-debugging: |
+      <section, may include H2 and fenced code>
+    invariant-files-extras: |
+      <lines>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `debug:` from `customizations`.

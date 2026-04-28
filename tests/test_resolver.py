@@ -11,10 +11,7 @@ from forge.manifest import Manifest, load_manifest
 from forge.resolver import (
     INSERT_RE,
     PLACEHOLDER_RE,
-    SLOT_INSERT_HEADER_RE,
     ResolverError,
-    _fence_regions,
-    _in_fence,
     _is_paragraph_embedded,
     resolve,
 )
@@ -85,6 +82,7 @@ def _build_manifest(
     skills_dir: str = ".claude/commands/",
     invariants_dir: str = "docs/invariants/",
     conventions_dir: str = "docs/conventions/",
+    customizations: dict | None = None,
 ) -> Manifest:
     payload = {
         "schema_version": 1,
@@ -105,6 +103,8 @@ def _build_manifest(
     }
     if language != "python":
         payload.pop("python_version")
+    if customizations is not None:
+        payload["customizations"] = customizations
     (project_root / ".forge").mkdir(parents=True, exist_ok=True)
     manifest_path = project_root / ".forge" / "manifest.yaml"
     manifest_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
@@ -118,30 +118,23 @@ def _build_manifest(
 # ---------------------------------------------------------------------------
 
 
-def _authored_probes(contribution_path: Path) -> list[tuple[str, str, str]]:
-    """Read a contribution file and return (kind, name, probe) tuples for each
-    declared slot/insert. The probe is the first non-blank line of the body as
-    authored — independent of how the resolver parses block boundaries. If the
-    composed skill is missing the probe, content was lost during composition."""
-    if not contribution_path.is_file():
+def _authored_probes(manifest: Manifest, skill_name: str) -> list[tuple[str, str, str]]:
+    """Iterate manifest.customizations for a skill and return (kind, name, probe)
+    tuples for each declared slot/insert. The probe is the first non-blank line
+    of the body as authored — if the composed skill is missing the probe,
+    content was lost during composition."""
+    custom = manifest.customizations.get(skill_name)
+    if custom is None:
         return []
-    text = contribution_path.read_text(encoding="utf-8")
-    fences = _fence_regions(text)
-    headers = [
-        m for m in SLOT_INSERT_HEADER_RE.finditer(text)
-        if not _in_fence(m.start(), fences)
-    ]
     out: list[tuple[str, str, str]] = []
-    for i, match in enumerate(headers):
-        kind, name = match.group(1), match.group(2)
-        body_start = match.end()
-        body_end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
-        body = text[body_start:body_end].strip()
-        if not body:
-            continue
-        probe = body.splitlines()[0].strip()
-        if probe:
-            out.append((kind, name, probe))
+    for kind, mapping in (("slot", custom.slots), ("insert", custom.inserts)):
+        for name, body in mapping.items():
+            stripped = body.strip()
+            if not stripped:
+                continue
+            probe = stripped.splitlines()[0].strip()
+            if probe:
+                out.append((kind, name, probe))
     return out
 
 
@@ -187,8 +180,6 @@ def test_forge_dogfood_resolves_cleanly():
     }
     assert set(out.skills.keys()) == expected
 
-    project_skills_dir = REPO_ROOT / manifest.resolution.skills_dir
-
     global_dir = REPO_ROOT / "skills" / "global"
 
     for name, body in out.skills.items():
@@ -199,32 +190,20 @@ def test_forge_dogfood_resolves_cleanly():
         assert INSERT_RE.search(body) is None, (
             f"composed skill {name!r} still has insert markers"
         )
-        for kind, slot_name, probe in _authored_probes(
-            project_skills_dir / f"{name}.custom.md"
-        ):
+        for kind, slot_name, probe in _authored_probes(manifest, name):
             assert probe in body, (
                 f"composed {name!r}: {kind} {slot_name!r} authored content "
                 f"missing — probe {probe!r} not found in output"
             )
 
         template = (global_dir / f"{name}.md").read_text(encoding="utf-8")
-        contrib_path = project_skills_dir / f"{name}.custom.md"
+        custom = manifest.customizations.get(name)
         contrib_slots: dict[str, str] = {}
-        if contrib_path.is_file():
-            contrib_text = contrib_path.read_text(encoding="utf-8")
-            fences = _fence_regions(contrib_text)
-            headers = [
-                m for m in SLOT_INSERT_HEADER_RE.finditer(contrib_text)
-                if not _in_fence(m.start(), fences)
-            ]
-            for i, h in enumerate(headers):
-                if h.group(1) != "slot":
-                    continue
-                body_start = h.end()
-                body_end = headers[i + 1].start() if i + 1 < len(headers) else len(contrib_text)
-                value = contrib_text[body_start:body_end].strip()
-                if value:
-                    contrib_slots[h.group(2)] = value
+        if custom is not None:
+            for slot_name, value in custom.slots.items():
+                stripped = value.strip()
+                if stripped:
+                    contrib_slots[slot_name] = stripped
 
         for slot_name, default, suffix in _paragraph_embedded_slots(template):
             value = contrib_slots.get(slot_name, default)
@@ -262,10 +241,9 @@ def test_full_stack_global_pattern_project(tmp_path: Path):
             "## insert: bullets\n\n- pattern bullet\n"
         ),
     )
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## insert: bullets\n\n- project bullet\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"inserts": {"bullets": "- project bullet\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -285,10 +263,9 @@ def test_slot_precedence_project_over_pattern_over_default(tmp_path: Path):
         skill_template="# T\n\n{{X=template-default}}\n",
         pattern_skill="## slot: X\n\npattern-value\n",
     )
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## slot: X\n\nproject-value\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"slots": {"X": "project-value"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -329,10 +306,9 @@ def test_insert_ordering_pattern_then_project(tmp_path: Path):
         skill_template="# T\n\n<!-- insert: items -->\n",
         pattern_skill="## insert: items\n\nP1\n",
     )
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## insert: items\n\nQ1\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"inserts": {"items": "Q1\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -389,10 +365,9 @@ def test_empty_slot_body_falls_through_to_pattern(tmp_path: Path):
         skill_template="# T\n\n{{X}}\n",
         pattern_skill="## slot: X\n\npattern-wins\n",
     )
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## slot: X\n\n\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"slots": {"X": "\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -662,28 +637,30 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
     assert "tail prose" in skill
 
 
-def test_authored_probes_is_fence_aware(tmp_path: Path):
-    """The dogfood oracle (`_authored_probes`) must agree with the parser on
-    what counts as a slot/insert header. A `## slot:` or `## insert:` line
-    inside a fence is content, not a header — the oracle must skip it, or it
-    will mis-extract probes from contributions that quote the grammar in
-    documentation."""
-    contribution = tmp_path / "fence-aware.md"
-    contribution.write_text(
-        "## insert: real_one\n\n"
-        "first body\n\n"
-        "```\n"
-        "## insert: quoted_in_fence\n\n"
-        "should not be treated as a header\n"
-        "```\n\n"
-        "## insert: real_two\n\n"
-        "second body\n",
-        encoding="utf-8",
+def test_authored_probes_reads_from_manifest(tmp_path: Path):
+    """The dogfood oracle (`_authored_probes`) must iterate
+    manifest.customizations, not <skills_dir>/<name>.custom.md. Without this,
+    the helper would return [] for every skill after the .custom.md migration
+    and the body-presence check would silently pass vacuously."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
+    manifest_path = _build_manifest(
+        project,
+        customizations={
+            "tinyskill": {
+                "slots": {"X": "real_slot_value"},
+                "inserts": {"items": "first authored line\nsecond line\n"},
+            }
+        },
     )
-    probes = _authored_probes(contribution)
-    names = [name for _, name, _ in probes]
-    assert names == ["real_one", "real_two"]
-    assert "quoted_in_fence" not in names
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    probes = _authored_probes(manifest, "tinyskill")
+    names = sorted(name for _, name, _ in probes)
+    assert names == ["X", "items"]
+    probe_map = {name: probe for _, name, probe in probes}
+    assert probe_map["X"] == "real_slot_value"
+    assert probe_map["items"] == "first authored line"
 
 
 def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
@@ -702,10 +679,16 @@ def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
         "Trailing paragraph.\n"
     )
     _build_baseline(baseline, skill_template=template)
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## slot: EMBEDDED\n\nembedded-value\n\n## slot: SECTION\n\nsection-value\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={
+            "tinyskill": {
+                "slots": {
+                    "EMBEDDED": "embedded-value",
+                    "SECTION": "section-value",
+                }
+            }
+        },
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -743,16 +726,57 @@ def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
     project = tmp_path / "proj"
     template = "# T\n\nClause: {{EMBEDDED=default-clause}}."
     _build_baseline(baseline, skill_template=template)
-    manifest_path = _build_manifest(project)
-    _write(
-        project / ".claude" / "commands" / "tinyskill.custom.md",
-        "## slot: EMBEDDED\n\neof-value\n",
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"slots": {"EMBEDDED": "eof-value"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
     skill = out.skills["tinyskill"]
     assert "Clause: eof-value." in skill
     assert "eof-value\n." not in skill
+
+
+def test_unknown_placeholder_in_manifest_customization_errors(tmp_path: Path):
+    """An unknown slot name in customizations raises ResolverError citing the
+    manifest path as the locator (not a synthetic locator)."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
+    manifest_path = _build_manifest(
+        project,
+        customizations={"tinyskill": {"slots": {"NOT_A_SLOT": "v"}}},
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    with pytest.raises(ResolverError, match="unknown placeholder 'NOT_A_SLOT'") as exc:
+        resolve(manifest, baseline_root=baseline, project_root=project)
+    assert str(manifest.source_path) in str(exc.value)
+
+
+def test_resolver_reads_customizations_from_manifest(tmp_path: Path):
+    """End-to-end: project-layer slot fills and insert bodies sourced from the
+    manifest appear in the composed output, with no .custom.md file present."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(
+        baseline,
+        skill_template="# T\n\n{{X=default-x}}\n\n<!-- insert: bullets -->\n",
+    )
+    manifest_path = _build_manifest(
+        project,
+        customizations={
+            "tinyskill": {
+                "slots": {"X": "manifest-x"},
+                "inserts": {"bullets": "- from manifest\n"},
+            }
+        },
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    skill = out.skills["tinyskill"]
+    assert "manifest-x" in skill
+    assert "- from manifest" in skill
+    assert not (project / ".claude" / "commands" / "tinyskill.custom.md").exists()
 
 
 def test_resolved_project_is_frozen(tmp_path: Path):

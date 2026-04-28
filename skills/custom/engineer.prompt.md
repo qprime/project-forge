@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # engineer — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `engineer` skill. The output fills named placeholders in `skills/global/engineer.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `engineer` skill. The output is a YAML fragment that fills named placeholders in `skills/global/engineer.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `en
 
 ## Output
 
-A markdown file. Include only sections with real content. Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution.
+A YAML fragment to merge under `customizations.engineer:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution.
 
 ---
 
@@ -75,42 +75,24 @@ How this project handles issue comments, PR protocol, or completion signaling. I
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: engineer
----
+A YAML fragment for `customizations.engineer:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
-# <project-name> — engineer contribution
-
-## slot: PROJECT_DESCRIPTION
-
-<phrase>
-
-## slot: ENGINEER_UNDERSTANDING
-
-<clause>
-
-## insert: working-style-extras
-
-<optional>
-
-## insert: do-bullets
-
-<optional bullets>
-
-## insert: dont-bullets
-
-<optional bullets>
-
-## insert: testing-extras
-
-<optional>
-
-## insert: completion-protocol
-
-<block, if applicable>
+```yaml
+engineer:
+  slots:
+    PROJECT_DESCRIPTION: <phrase>
+    ENGINEER_UNDERSTANDING: <clause>
+  inserts:
+    working-style-extras: |
+      <prose>
+    do-bullets: |
+      <bullets>
+    dont-bullets: |
+      <bullets>
+    testing-extras: |
+      <prose>
+    completion-protocol: |
+      <block>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `engineer:` from `customizations`.

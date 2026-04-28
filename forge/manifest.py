@@ -6,6 +6,8 @@ import warnings
 from dataclasses import dataclass, field
 from importlib.resources import files
 from pathlib import Path
+from types import MappingProxyType
+from typing import Mapping
 
 import yaml
 from jsonschema import Draft202012Validator
@@ -72,6 +74,12 @@ class Resolution:
 
 
 @dataclass(frozen=True)
+class SkillCustomization:
+    slots: Mapping[str, str]
+    inserts: Mapping[str, str]
+
+
+@dataclass(frozen=True)
 class Manifest:
     schema_version: int
     primary_pattern: str
@@ -83,6 +91,7 @@ class Manifest:
     axes: Axes
     project_context: ProjectContext
     resolution: Resolution
+    customizations: Mapping[str, SkillCustomization]
     source_path: Path
     project_root: Path
 
@@ -217,6 +226,21 @@ def _validate_semantics(raw: dict, *, baseline_root: Path, project_root: Path) -
     for key in ("skills_dir", "invariants_dir", "conventions_dir"):
         _validate_relative_path(raw["resolution"][key], label=f"resolution.{key}")
 
+    customizations = raw.get("customizations") or {}
+    if customizations:
+        global_skills_dir = baseline_root / "skills" / "global"
+        valid_skills = (
+            {p.stem for p in global_skills_dir.glob("*.md") if "." not in p.stem}
+            if global_skills_dir.is_dir()
+            else set()
+        )
+        for skill_name in customizations:
+            if skill_name not in valid_skills:
+                raise ManifestError(
+                    f"unknown skill in customizations: {skill_name!r}; "
+                    f"valid: {sorted(valid_skills)}"
+                )
+
     if raw.get("language") != "python":
         warnings.warn(
             f"language {raw.get('language')!r} has no baseline toolchain content",
@@ -278,6 +302,23 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         invariants_dir=res["invariants_dir"],
         conventions_dir=res["conventions_dir"],
     )
+    customizations: dict[str, SkillCustomization] = {}
+    for skill_name, body in (raw.get("customizations") or {}).items():
+        slots = {
+            k: norm
+            for k, v in (body.get("slots") or {}).items()
+            if (norm := _normalize_block(v)) != ""
+        }
+        inserts = {
+            k: norm
+            for k, v in (body.get("inserts") or {}).items()
+            if (norm := _normalize_block(v)) != ""
+        }
+        customizations[skill_name] = SkillCustomization(
+            slots=MappingProxyType(slots),
+            inserts=MappingProxyType(inserts),
+        )
+    customizations_view = MappingProxyType(customizations)
     return Manifest(
         schema_version=raw["schema_version"],
         primary_pattern=raw["patterns"]["primary"],
@@ -289,6 +330,15 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         axes=axes,
         project_context=project_context,
         resolution=resolution,
+        customizations=customizations_view,
         source_path=source_path.resolve(),
         project_root=project_root.resolve(),
     )
+
+
+def _normalize_block(body: str) -> str:
+    body = body.lstrip("\n")
+    body = body.rstrip()
+    if body == "":
+        return ""
+    return body + "\n"

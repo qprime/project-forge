@@ -133,16 +133,6 @@ class TestPlanUpdate:
         targets = {c.path.name for c in plan.changes}
         assert targets == {"tinyskill.md"}
 
-    def test_custom_files_never_targeted(self, tmp_path: Path):
-        baseline, project, manifest = _setup(tmp_path)
-        skills_dir = project / ".claude" / "commands"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        custom = skills_dir / "tinyskill.custom.md"
-        custom.write_text("## slot: X\n\nfrom-project\n", encoding="utf-8")
-        plan = plan_update(manifest, baseline_root=baseline, project_root=project)
-        targets = {c.path.name for c in plan.changes}
-        assert "tinyskill.custom.md" not in targets
-
     def test_prompt_files_never_targeted(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
         skills_dir = project / ".claude" / "commands"
@@ -227,24 +217,14 @@ class TestApplyUpdate:
 
 class TestForgeDogfood:
     def test_forge_update_is_idempotent_after_apply(self, tmp_path: Path):
-        manifest = load_manifest(FORGE_MANIFEST, baseline_root=REPO_ROOT)
-        skills_dir_rel = manifest.resolution.skills_dir
         proj = tmp_path / "forge"
         (proj / ".forge").mkdir(parents=True)
         (proj / ".forge" / "manifest.yaml").write_text(
             FORGE_MANIFEST.read_text(encoding="utf-8"), encoding="utf-8"
         )
-        # Mirror the project-layer skills dir so resolve() sees forge's
-        # `.custom.md` contributions, but leave the *output* `<skill>.md`
-        # files absent so plan_update reports `create` for all six.
-        src_skills = REPO_ROOT / skills_dir_rel
-        dst_skills = proj / skills_dir_rel
-        dst_skills.mkdir(parents=True, exist_ok=True)
-        for child in src_skills.iterdir():
-            if child.name.endswith(".custom.md"):
-                (dst_skills / child.name).write_text(
-                    child.read_text(encoding="utf-8"), encoding="utf-8"
-                )
+        # Project-layer customizations now live in the manifest itself, so
+        # nothing else needs to be mirrored. The output `<skill>.md` files are
+        # absent in `proj`, so plan_update should report `create` for all six.
 
         proj_manifest = load_manifest(
             proj / ".forge" / "manifest.yaml",

@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # close-out — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `close-out` skill. The output fills named placeholders in `skills/global/close-out.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `close-out` skill. The output is a YAML fragment that fills named placeholders in `skills/global/close-out.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `cl
 
 ## Output
 
-A markdown file. Most projects only need the posting-protocol slot; the verification-checks insertion is usually filled by the pattern layer. Include project-layer content only when it genuinely varies from pattern defaults.
+A YAML fragment to merge under `customizations.close-out:` in `<project>/.forge/manifest.yaml`. Most projects only need the `posting-protocol` insert; the `verification-checks` insert is usually filled by the pattern layer. Include project-layer content only when it genuinely varies from pattern defaults.
 
 ---
 
@@ -41,22 +41,15 @@ How this project handles posting the implementation summary. Defaults:
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: close-out
----
+A YAML fragment for `customizations.close-out:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies.
 
-# <project-name> — close-out contribution
-
-## insert: verification-checks
-
-<optional>
-
-## insert: posting-protocol
-
-<optional>
+```yaml
+close-out:
+  inserts:
+    verification-checks: |
+      <bullets or steps>
+    posting-protocol: |
+      <prose>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `close-out:` from `customizations`.

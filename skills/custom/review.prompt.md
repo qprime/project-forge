@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # review — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `review` skill. The output fills named placeholders in `skills/global/review.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `review` skill. The output is a YAML fragment that fills named placeholders in `skills/global/review.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -20,7 +20,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `re
 
 ## Output
 
-A markdown file. Include only sections with real content.
+A YAML fragment to merge under `customizations.review:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -89,38 +89,23 @@ Omit if the project has no issue tracker.
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: review
----
+A YAML fragment for `customizations.review:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
-# <project-name> — review contribution
-
-## insert: startup-extras
-
-<optional>
-
-## insert: code-review-extras
-
-<optional bullets>
-
-## insert: architectural-review-extras
-
-<optional bullets>
-
-## insert: posting-slot-code
-
-<optional block>
-
-## insert: posting-slot-spec
-
-<optional block>
-
-## insert: posting-protocol
-
-<optional section>
+```yaml
+review:
+  inserts:
+    startup-extras: |
+      <prose or numbered line>
+    code-review-extras: |
+      <bullets>
+    architectural-review-extras: |
+      <bullets>
+    posting-slot-code: |
+      <block>
+    posting-slot-spec: |
+      <block>
+    posting-protocol: |
+      <section>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `review:` from `customizations`.

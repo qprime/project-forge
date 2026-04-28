@@ -50,3 +50,95 @@ resolution:
   skills_dir: .claude/commands/
   invariants_dir: docs/invariants/
   conventions_dir: docs/conventions/
+
+customizations:
+  architect:
+    slots:
+      PERSONA_DOMAIN: hybrid runtime project orchestration, capability baseline design, and cross-project pattern extraction
+      PERSONA_UNDERSTANDING: how the three-layer model (global / pattern / project) composes into a coherent project, why the registry is the single source of truth, and the difference between baseline-owned standardization and per-project customization
+      PERSONA_MENTAL_MODEL: registries, baselines, manifests, patterns, layers, and propagation paths
+    inserts:
+      investigate-anchors: |
+        Key subsystems: `registry/` (project manifest, FG-1), `baseline/` (canonical templates, FG-2), `skills/{global,pattern,custom}/` (three-layer skill composition), `forge/resolver.py` (deterministic layer composition), `invariants/` (stratified by layer), `.forge/manifest.yaml` (per-project pattern declaration).
+      domain-bullets: |
+        - Check layer fit — global content must apply to every hybrid runtime project, pattern content to every project on that pattern, project content only to this one. A counterexample in the registry collapses the layer claim.
+        - Check self-bootstrap (FG-5) — any change to baseline structure must remain expressible against forge itself. If forge can't dogfood the change, the baseline is incomplete.
+        - Check read-vs-write boundary (FG-4) — forge reads other projects freely, writes only during `/bootstrap`, `/rebase`, or `/codex-sync`. Designs that require ambient writes are wrong.
+
+  close-out:
+    inserts:
+      posting-protocol: |
+        If associated with a GitHub issue, post the Implementation Summary (Phase 2) as a comment using `gh issue comment <number> --body "..."`.
+
+  debug:
+    inserts:
+      domain-debugging: |
+        ## Forge-Specific Debugging
+
+        When debugging forge issues, check:
+        - **Registry resolution** — do all paths and refs in `registry/projects.yaml` resolve? `/status` is the canonical detector (FG-6).
+        - **Baseline version comparisons** — drift detection compares declared `resolution.baseline_version` in each project's manifest against the current baseline. Stale or missing values surface as drift.
+        - **Survey-derived profiles** — profiles in `profiles/` are derived from live state (FG-3). If a profile looks wrong, the bug is in `/survey` or in the source it read, not in the profile itself.
+        - **Resolver composition** — `forge/resolver.py` walks template → pattern contribution → project contribution. Unfilled required slots, unknown placeholders, and invariant ID collisions all raise `ResolverError` with the offending name; read the message before guessing.
+        - **Prompt log parsing** — `/monitor` reads the UserPromptSubmit log; if patterns aren't surfacing, check the log path and format before suspecting the analysis.
+      invariant-files-extras: |
+        - `docs/invariants/global.md` — forge's own invariants (FG-1 through FG-7); registry, baseline, survey, and monitor boundaries
+
+  engineer:
+    slots:
+      PROJECT_DESCRIPTION: project-forge — a cross-project intelligence system and bootstrap orchestrator that owns the capability baseline, project registry, drift detection, and change monitoring
+      ENGINEER_UNDERSTANDING: registry management, baseline maintenance, three-layer skill/invariant/convention composition, and how the resolver deterministically assembles per-project artifacts from layered templates
+    inserts:
+      do-bullets: |
+        - Respect FG-1 (Registry-is-Truth) — never duplicate `registry/projects.yaml` data in other files
+        - Respect FG-4 (Read-Before-Write) — read other projects freely, write only during `/bootstrap`, `/rebase`, or `/codex-sync` with user approval
+        - Respect FG-7 (Monitor-Proposes) — `/monitor` produces proposals, never auto-applies; preserve that boundary in any monitoring code
+        - Read `docs/invariants/global.md` before modifying registry, baseline, or cross-project logic
+      dont-bullets: |
+        - Don't manually edit survey-derived profiles (FG-3) — re-run `/survey` instead
+        - Don't store full copies of project state — store profiles, pointers, and summaries; read live when detail is needed
+        - Don't auto-rebase projects — drift detection and proposals only, human decides
+        - Don't promote a convention to an invariant on vibes — apply the counterfactual sorting test from `CLAUDE.md`
+      completion-protocol: |
+        After completing implementation associated with a GitHub issue, post a summary comment using `gh issue comment <number> --body "..."` with this shape:
+
+        ```
+        ## Implementation Summary
+
+        <1-2 sentence description>
+
+        ### Changes
+
+        | File | Change |
+        |------|--------|
+        | `path/to/file.py` | Description |
+
+        ### Notes
+        - Key decisions (omit if none)
+        ```
+
+  review:
+    inserts:
+      startup-extras: |
+        7. Post summary to the associated issue when the review is tied to one — post even when clean. The comment is durable project history.
+      posting-slot-code: |
+        ## GitHub Issue Comment
+
+        [If tied to an issue, post the summary via `gh issue comment N --body ...` and paste the returned URL here. A review tied to an issue is **incomplete** until this slot contains a real URL.]
+      posting-slot-spec: |
+        ## GitHub Issue Comment
+
+        [If tied to an issue, post the summary via `gh issue comment N --body ...` and paste the returned URL here. A review tied to an issue is **incomplete** until this slot contains a real URL.]
+      posting-protocol: |
+        ## GitHub Issue Comment `[github-issues]`
+
+        When the review is tied to an issue, the report is incomplete until the GitHub Issue Comment section contains a real `gh issue comment` URL. Clean verdicts included — the comment is durable project history; terminal output is not.
+
+        1. Draft a summary capturing verdict, key findings, and any issue-update recommendations.
+        2. Post with `gh issue comment N --body "..."` (heredoc for multi-line).
+        3. Paste the returned URL into the report's GitHub Issue Comment slot and into your final response.
+
+  spec:
+    slots:
+      ISSUE_TRACKER: GitHub issue
+      INVARIANT_READ_TARGETS: "`docs/invariants/global.md` plus any subsystem invariant file touched by the change"

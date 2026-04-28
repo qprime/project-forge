@@ -65,15 +65,25 @@ def _compose_skills(
     )
 
     pattern_dir = baseline_root / "skills" / "pattern" / manifest.primary_pattern
-    project_skills_dir = project_root / manifest.resolution.skills_dir
 
     out: dict[str, str] = {}
     for name in skill_names:
         template = _read_text(global_dir / f"{name}.md")
         pattern_contrib = _parse_contribution(pattern_dir / f"{name}.md")
-        project_contrib = _parse_contribution(project_skills_dir / f"{name}.custom.md")
+        project_contrib = _project_contribution(manifest, name)
         out[name] = _compose_skill(name, template, pattern_contrib, project_contrib)
     return out
+
+
+def _project_contribution(manifest: Manifest, skill_name: str) -> _Contribution:
+    custom = manifest.customizations.get(skill_name)
+    if custom is None:
+        return _Contribution(slots={}, inserts={}, source=manifest.source_path)
+    return _Contribution(
+        slots=dict(custom.slots),
+        inserts=dict(custom.inserts),
+        source=manifest.source_path,
+    )
 
 
 def _compose_skill(

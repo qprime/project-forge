@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # spec — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `spec` skill. The output fills named placeholders in `skills/global/spec.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `spec` skill. The output is a YAML fragment that fills named placeholders in `skills/global/spec.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `sp
 
 ## Output
 
-A markdown file. Include only sections with real content.
+A YAML fragment to merge under `customizations.spec:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -63,34 +63,22 @@ Omit if none apply.
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: spec
----
+A YAML fragment for `customizations.spec:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies.
 
-# <project-name> — spec contribution
-
-## slot: ISSUE_TRACKER
-
-<value>
-
-## insert: process-extras
-
-<optional>
-
-## insert: design-extras
-
-<optional>
-
-## insert: testing-strategy-extras
-
-<optional>
-
-## insert: quality-checks-extras
-
-<optional bullets>
+```yaml
+spec:
+  slots:
+    ISSUE_TRACKER: <value>
+    INVARIANT_READ_TARGETS: <phrase>
+  inserts:
+    process-extras: |
+      <prose>
+    design-extras: |
+      <prose>
+    testing-strategy-extras: |
+      <prose>
+    quality-checks-extras: |
+      <bullets>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `spec:` from `customizations`.

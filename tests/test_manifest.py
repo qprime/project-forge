@@ -368,3 +368,139 @@ def test_toolchain_omitted_normalizes(baseline_root, project_tree):
     assert m.toolchain.test is None
     assert m.toolchain.lint is None
     assert m.toolchain.type_check is None
+
+
+# ---------------------------------------------------------------------------
+# customizations
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def baseline_with_global_skills(baseline_root: Path) -> Path:
+    """baseline_root with a single global skill registered (`mini`)."""
+    (baseline_root / "skills" / "global").mkdir(parents=True, exist_ok=True)
+    (baseline_root / "skills" / "global" / "mini.md").write_text(
+        "# Mini\n\n{{X=default}}\n\n<!-- insert: items -->\n",
+        encoding="utf-8",
+    )
+    return baseline_root
+
+
+def test_customizations_optional(baseline_with_global_skills, project_tree):
+    """A manifest without `customizations` loads cleanly; the field is an
+    empty dict on the resulting Manifest."""
+    payload = {**VALID_MINIMAL}
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_with_global_skills)
+    assert m.customizations == {}
+
+
+def test_customizations_loads_slots_and_inserts(
+    baseline_with_global_skills, project_tree
+):
+    payload = {
+        **VALID_MINIMAL,
+        "customizations": {
+            "mini": {
+                "slots": {"X": "from-project"},
+                "inserts": {"items": "- one\n- two\n"},
+            }
+        },
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_with_global_skills)
+    assert "mini" in m.customizations
+    assert m.customizations["mini"].slots == {"X": "from-project\n"}
+    assert m.customizations["mini"].inserts == {"items": "- one\n- two\n"}
+
+
+def test_customizations_unknown_skill_key_rejected(
+    baseline_with_global_skills, project_tree
+):
+    """A typo in a skill name fails _validate_semantics — not the schema."""
+    payload = {
+        **VALID_MINIMAL,
+        "customizations": {"mni": {"slots": {"X": "v"}}},
+    }
+    path = write_manifest(project_tree, payload)
+    with pytest.raises(ManifestError, match="unknown skill in customizations: 'mni'"):
+        load_manifest(path, baseline_root=baseline_with_global_skills)
+
+
+def test_customizations_unknown_subkey_rejected(
+    baseline_with_global_skills, project_tree
+):
+    """`additionalProperties: false` enforced at the slots/inserts structural level."""
+    payload = {
+        **VALID_MINIMAL,
+        "customizations": {"mini": {"not_a_field": {"X": "v"}}},
+    }
+    path = write_manifest(project_tree, payload)
+    with pytest.raises(ManifestError):
+        load_manifest(path, baseline_root=baseline_with_global_skills)
+
+
+def test_customizations_normalizes_trailing_newline(
+    baseline_with_global_skills, project_tree
+):
+    """YAML `|` block scalars and plain scalars both produce values with a
+    single trailing newline after _normalize_block — same shape the contribution
+    parser produced."""
+    payload_yaml = (
+        "schema_version: 1\n"
+        "patterns:\n  primary: compiler\n"
+        "language: python\n"
+        "python_version: \"3.12\"\n"
+        "project_context:\n  description: synthetic\n"
+        "resolution:\n"
+        "  baseline_version: \"2026-04-27\"\n"
+        "  skills_dir: .claude/commands/\n"
+        "  invariants_dir: docs/invariants/\n"
+        "  conventions_dir: docs/conventions/\n"
+        "customizations:\n"
+        "  mini:\n"
+        "    slots:\n"
+        "      X: plain-scalar\n"
+        "    inserts:\n"
+        "      items: |\n"
+        "        - a\n"
+        "        - b\n"
+    )
+    path = project_tree / ".forge" / "manifest.yaml"
+    path.write_text(payload_yaml, encoding="utf-8")
+    m = load_manifest(path, baseline_root=baseline_with_global_skills)
+    assert m.customizations["mini"].slots["X"] == "plain-scalar\n"
+    assert m.customizations["mini"].inserts["items"] == "- a\n- b\n"
+
+
+def test_customizations_are_immutable(
+    baseline_with_global_skills, project_tree
+):
+    """`SkillCustomization` is `frozen=True`, but the slot/insert mappings
+    must also be immutable so the frozen claim is honest end-to-end. Without
+    this, `m.customizations[name].slots[key] = ...` succeeds silently."""
+    payload = {
+        **VALID_MINIMAL,
+        "customizations": {"mini": {"slots": {"X": "v"}}},
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_with_global_skills)
+    with pytest.raises(TypeError):
+        m.customizations["mini"].slots["X"] = "tampered"  # type: ignore[index]
+    with pytest.raises(TypeError):
+        m.customizations["new"] = m.customizations["mini"]  # type: ignore[index]
+
+
+def test_customizations_empty_body_filtered(
+    baseline_with_global_skills, project_tree
+):
+    """An empty body in customizations is filtered at load time, mirroring the
+    parser's `if body == "": continue` so empty falls through to the pattern
+    layer at resolve time."""
+    payload = {
+        **VALID_MINIMAL,
+        "customizations": {"mini": {"slots": {"X": "\n"}}},
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_with_global_skills)
+    assert m.customizations["mini"].slots == {}

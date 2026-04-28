@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # architect — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `architect` skill. The output is a markdown file that fills named placeholders in `skills/global/architect.md`.
+Run during bootstrap (or rebase) to produce project-specific content for the `architect` skill. The output is a YAML fragment that fills named placeholders in `skills/global/architect.md` via the project manifest's `customizations` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `ar
 
 ## Output
 
-A single markdown file. Include only sections with real content. Omit any placeholder you can't fill well — an empty placeholder is better than a generic one.
+A YAML fragment to merge under `customizations.architect:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Omit any placeholder you can't fill well — an empty placeholder is better than a generic one.
 
 Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution, not here.
 
@@ -90,42 +90,22 @@ Omit if the project has no checks beyond what pattern contributions already prov
 
 ## Output shape
 
-```markdown
----
-layer: project
-project: <project-name>
-skill: architect
----
+A YAML fragment for `customizations.architect:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
-# <project-name> — architect contribution
-
-## slot: PERSONA_DOMAIN
-
-<noun phrase>
-
-## slot: PERSONA_UNDERSTANDING
-
-<clause>
-
-## slot: PERSONA_MENTAL_MODEL
-
-<phrase>
-
-## slot: HANDOFF_TARGET
-
-<skill name, default /spec>
-
-## insert: context-discovery-extras
-
-<numbered lines, optional>
-
-## insert: investigate-anchors
-
-<prose, optional>
-
-## insert: domain-bullets
-
-<bullets, optional>
+```yaml
+architect:
+  slots:
+    PERSONA_DOMAIN: <noun phrase>
+    PERSONA_UNDERSTANDING: <clause>
+    PERSONA_MENTAL_MODEL: <phrase>
+    HANDOFF_TARGET: <skill name, default /spec>
+  inserts:
+    context-discovery-extras: |
+      <numbered lines>
+    investigate-anchors: |
+      <prose>
+    domain-bullets: |
+      <bullets>
 ```
 
-Sections with no content are omitted entirely.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `architect:` from `customizations`.

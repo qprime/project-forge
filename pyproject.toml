@@ -11,6 +11,9 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest"]
 
+[project.scripts]
+forge = "forge.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["forge*"]
 

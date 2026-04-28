@@ -1,4 +1,5 @@
 ---
+layer: global
 description: Run the full post-implementation close-out workflow — verification, summary, and commit. Only use when the user explicitly asks — e.g. "close it out", "wrap it up", "/close-out". Never auto-trigger after implementation.
 ---
 
@@ -14,11 +15,8 @@ This skill runs the full verification, summary, and commit cycle after an implem
 
 **Context discipline:** Pipe large output to `tail` for summary. Re-run without tail on failure.
 
-Detect what exists, then run exactly what's configured:
+Detect what exists, then run exactly what's configured.
 
-1. **Tests:** If `tests/` exists or `pyproject.toml` declares pytest config, run `python -m pytest tests/ -x -q 2>&1 | tail -5`. If neither is present, report "no test suite detected" and proceed.
-2. **Lint:** If `ruff.toml` or `[tool.ruff]` in `pyproject.toml`, run `ruff check . 2>&1 | tail -3 && ruff format --check . 2>&1 | tail -3`. If neither, report "no ruff config detected".
-3. **Type check:** If `pyrightconfig.json` or `[tool.pyright]` in `pyproject.toml`, run `pyright 2>&1 | tail -5`. Skip if neither.
 
 List each check as `RAN`, `SKIPPED (reason)`, or `FAILED` in the Phase 4 summary.
 
@@ -28,7 +26,7 @@ List each check as `RAN`, `SKIPPED (reason)`, or `FAILED` in the Phase 4 summary
 
 ## Phase 2: Implementation Summary
 
-Draft an implementation summary as a GitHub issue comment:
+Draft an implementation summary:
 
 ```
 ## Implementation Summary
@@ -39,13 +37,13 @@ Draft an implementation summary as a GitHub issue comment:
 
 | File | Change |
 |------|--------|
-| `path/to/file.py` | Description of change |
+| `path/to/file` | Description of change |
 
 ### Files Created (<N>) *(if any)*
 
 | File | Purpose |
 |------|---------|
-| `path/to/file.py` | Purpose |
+| `path/to/file` | Purpose |
 
 ### Design Notes
 - Key architectural decisions or non-obvious choices
@@ -62,7 +60,7 @@ Present to user before posting.
 
 1. Run `git status` first. Stage only files modified during this implementation session, one `git add <path>` per file. Never `git add -A` or `git add .`. If `git status` shows modifications you did not make this session, ask the user before staging them.
 2. Commit with:
-   - Subject: imperative mood, `(closes #N)` if closing issue
+   - Subject: imperative mood, `(closes #N)` if closing an issue
    - Body: categorized bullet points
    - Trailer: `Co-Authored-By: Claude <model> <noreply@anthropic.com>` (substitute current model name, e.g. `Claude Opus 4.7 (1M context)`)
 3. Run `git status` to confirm clean state
@@ -84,7 +82,5 @@ Committed as `<hash>` — all checks pass, <N> tests pass.
 ```
 
 ---
-
-## Posting to GitHub
 
 If associated with a GitHub issue, post the Implementation Summary (Phase 2) as a comment using `gh issue comment <number> --body "..."`.

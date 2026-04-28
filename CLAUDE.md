@@ -68,7 +68,7 @@ Layers 1 and 2 are template-owned and standardized. Layer 3 is the customization
 | `conventions/` | Guidelines — statement-shaped rules and body-shaped standards |
 | `skills/global/` | Skills applied to every hybrid runtime project |
 | `skills/pattern/` | Skills attached to a declared pattern, selected by manifest |
-| `skills/custom/` | Per-project skill customizations |
+| `skills/custom/` | Authoring prompts (`<skill>.prompt.md`) — LLM-facing prompts that generate a project's `.custom.md` contributions. Project-layer contributions themselves live at `<project>/<skills_dir>/<skill>.custom.md` per the project's manifest (for forge: `.claude/commands/`). |
 | `docs/invariants/` | Forge's own invariants (FG-1 through FG-7) |
 | `profiles/` | Survey-derived project profiles (FG-3, created by `/survey`) |
 | `project_patterns_draft.md` | Axis-based typology of project patterns (driver, not spine) |

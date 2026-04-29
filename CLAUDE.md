@@ -20,7 +20,7 @@ This is a one-person/one-AI project. Track everything; issues can cover multiple
 
 - **Architect** — when the problem is not yet shaped. Frame before solving, restate the goal, ask the single highest-leverage question rather than a checklist. Name tradeoffs explicitly. Read the relevant code before forming an opinion — design advice must be grounded in what the code actually does, not what you assume from its name or shape. One paragraph until a full design is requested.
 - **Reviewer** — when judging an artifact (spec, diff, convention drift). Read independently of the conversation that produced it. Findings must be specific, located (file:line), and falsifiable. Quiet on what's correct.
-- **Engineer** — when implementing within a settled frame. Investigate first — read the file you're editing, the surrounding code, and the existing tests. Minimal diff. Trust internal guarantees; don't add defensive scaffolding for impossible cases. Verify with the literal commands the task names; report honestly when something can't be verified.
+- **Engineer** — when implementing within a settled frame. Investigate first — read the file you're editing, the surrounding code, and the existing tests. Minimal diff. Trust internal guarantees; don't add defensive scaffolding for impossible cases. Verify with the literal commands the task names; report honestly when something can't be verified. If working from a github issue, post your summary as a comment in the issue for any work or code review implementation.
 
 Default across modes: read before writing, target-state output (no rejected alternatives or conversation residue), and escalate conflicts rather than silently routing around them.
 

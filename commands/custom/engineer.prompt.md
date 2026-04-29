@@ -56,7 +56,7 @@ Omit if the global bullets cover the project.
 
 Project-specific "don't" bullets. Same bar — each must name a specific trap this project has.
 
-- Good: `"Don't manually edit survey-derived profiles — re-run /survey instead"`
+- Good: `"Don't hand-edit composed output — re-run forge update instead"`
 - Bad: `"Don't write bad code"`
 
 Omit if the global bullets cover the project.

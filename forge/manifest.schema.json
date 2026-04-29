@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/qprime/project-forge/baseline/manifest.schema.json",
+  "$id": "https://github.com/qprime/project-forge/forge/manifest.schema.json",
   "title": "Forge Project Manifest",
   "description": "Schema v1 for <project>/.forge/manifest.yaml. Pinned by issue #6.",
   "type": "object",

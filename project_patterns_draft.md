@@ -1,6 +1,6 @@
 # Project Patterns — Working Draft
 
-**Status:** Exploration, not canonical. Do not consume from `baseline/`.
+**Status:** Exploration, not canonical. Driver for taxonomy work, not a live input to the resolver.
 **Started:** 2026-04-22
 **Last revision:** 2026-04-22 — restructured around composable axes after architect critique; KB pattern promoted to first-class peer with its own four-stage interior.
 

@@ -185,7 +185,7 @@ def _compose_conventions(
     if language is None:
         return {}
     candidates = [
-        baseline_root / "baseline" / "coding_guidelines.md",
+        baseline_root / "conventions" / "global" / f"{language}.md",
         baseline_root / "conventions" / "pattern" / manifest.primary_pattern / f"{language}.md",
     ]
     for domain in manifest.domains:

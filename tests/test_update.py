@@ -50,7 +50,7 @@ def _build_baseline(
     (root / "conventions" / "domain").mkdir(parents=True, exist_ok=True)
     (root / "conventions" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
     _write(root / "invariants" / "global.md", "## GL-1 — Foo\n\nrule\n")
-    _write(root / "baseline" / "coding_guidelines.md", "# global\n")
+    _write(root / "conventions" / "global" / "python.md", "# global\n")
     return root
 
 

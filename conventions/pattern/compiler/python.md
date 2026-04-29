@@ -6,7 +6,7 @@ language: python
 
 # Compiler pattern — Python conventions
 
-Conventions for projects declaring the Compiler pattern. Extends the global Python coding guidelines in `baseline/coding_guidelines.md`.
+Conventions for projects declaring the Compiler pattern. Extends the global Python coding guidelines in `conventions/global/python.md`.
 
 The Compiler pattern: input AST → IR → output codegen, with the IR as the single canonical intermediate form.
 

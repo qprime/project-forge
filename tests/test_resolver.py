@@ -63,7 +63,7 @@ def _build_baseline(
         _write(root / "invariants" / "domain" / f"{domain}.md", body)
         (root / "conventions" / "domain" / domain).mkdir(parents=True, exist_ok=True)
     if conventions_global is not None:
-        _write(root / "baseline" / "coding_guidelines.md", conventions_global)
+        _write(root / "conventions" / "global" / "python.md", conventions_global)
     for lang, body in (conventions_pattern or {}).items():
         _write(root / "conventions" / "pattern" / pattern / f"{lang}.md", body)
     for domain, langs in (conventions_domain or {}).items():
@@ -644,8 +644,8 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
         pattern_text.encode("utf-8")
     )
     (baseline / "conventions" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
-    (baseline / "baseline").mkdir(parents=True, exist_ok=True)
-    (baseline / "baseline" / "coding_guidelines.md").write_text("# g\n", encoding="utf-8")
+    (baseline / "conventions" / "global").mkdir(parents=True, exist_ok=True)
+    (baseline / "conventions" / "global" / "python.md").write_text("# g\n", encoding="utf-8")
     (baseline / "invariants").mkdir(parents=True, exist_ok=True)
     (baseline / "invariants" / "global.md").write_text(
         "## GL-1 — Foo\n\nrule\n", encoding="utf-8"

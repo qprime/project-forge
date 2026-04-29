@@ -9,7 +9,7 @@ status: provisional
 
 Conventions for projects with geometry, units, hardware output, or other spatial concerns.
 
-**Status:** the "domain" axis is provisional in the project-forge taxonomy — see the open question in `refactor_notes.md`. This file holds content that is clearly not global (only applies to spatial-output projects) but is also not architectural-pattern shaped (it cuts across patterns: a Compiler producing CAM output and an ML system producing toolpaths both want these rules).
+**Status:** the "domain" axis is provisional. This file holds content that is clearly not global (only applies to spatial-output projects) but is also not architectural-pattern shaped (it cuts across patterns: a Compiler producing CAM output and an ML system producing toolpaths both want these rules).
 
 Examples in the registry: mill_ui, image-forge.
 

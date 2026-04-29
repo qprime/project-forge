@@ -9,7 +9,8 @@
     "schema_version",
     "patterns",
     "project_context",
-    "resolution"
+    "resolution",
+    "commands"
   ],
   "properties": {
     "schema_version": {
@@ -41,6 +42,15 @@
       "items": {"type": "string", "minLength": 1}
     },
     "language": {"type": "string", "minLength": 1},
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["architect", "debug", "engineer", "review", "spec", "close-out"]
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
     "python_version": {
       "type": "string",
       "pattern": "^\\d+\\.\\d+$"

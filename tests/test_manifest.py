@@ -22,6 +22,7 @@ VALID_MINIMAL = {
     "patterns": {"primary": "compiler"},
     "language": "python",
     "python_version": "3.12",
+    "commands": ["architect"],
     "project_context": {"description": "A short project description."},
     "resolution": {
         "baseline_version": "2026-04-27",
@@ -452,6 +453,7 @@ def test_project_layer_normalizes_trailing_newline(
         "patterns:\n  primary: compiler\n"
         "language: python\n"
         "python_version: \"3.12\"\n"
+        "commands: [architect]\n"
         "project_context:\n  description: synthetic\n"
         "resolution:\n"
         "  baseline_version: \"2026-04-27\"\n"

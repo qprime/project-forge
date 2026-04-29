@@ -72,6 +72,7 @@ def _build_manifest_file(
         "domains": [],
         "language": "python",
         "python_version": "3.12",
+        "commands": ["architect"],
         "project_context": {"description": "synthetic"},
         "resolution": {
             "baseline_version": "2026-04-27",

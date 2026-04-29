@@ -5,6 +5,8 @@ patterns:
 
 domains: []
 
+commands: [architect, engineer, spec, debug]
+
 language: python
 python_version: "3.12"
 toolchain:

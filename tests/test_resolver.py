@@ -94,6 +94,7 @@ def _build_manifest(
             "secondary": [{"name": n, "scope": s} for n, s in secondaries],
         },
         "domains": list(domains),
+        "commands": ["architect"],
         "project_context": {"description": "synthetic"},
         "resolution": {
             "baseline_version": "2026-04-27",

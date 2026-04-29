@@ -1,6 +1,6 @@
 # Python Coding Guidelines
 
-Rules for AI agents writing Python in projects bootstrapped from this baseline.
+Rules for AI agents writing Python in projects created from this baseline.
 
 Each rule has: the rule (imperative), a right/wrong code pair, and the failure mode if violated. Cross-references to invariants in `invariants/global.md` (GL-N) are noted where applicable.
 

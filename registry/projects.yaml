@@ -4,7 +4,7 @@
 # Discovery contract (per issue #6):
 #   - `path:` is mandatory for entries that have a manifest at <path>/.forge/manifest.yaml.
 #   - Entries without a manifest carry `manifest: none` as a sentinel; discovery skips them.
-#   - Entries are migrated off `manifest: none` as they are bootstrapped.
+#   - Entries are migrated off `manifest: none` as they are migrated to forge.
 
 projects:
   mill_ui:
@@ -135,10 +135,10 @@ projects:
   project-forge:
     repo: qprime/project-forge
     path: ~/Code/project-forge
-    tags: [python, github-issues, infrastructure, bootstrap-source]
+    tags: [python, github-issues, infrastructure, baseline-source]
     targets: [claude, codex]
-    description: Cross-project intelligence, bootstrap orchestration, capability baseline
-    domains: [meta, bootstrapping, project management]
+    description: Cross-project intelligence, create/update orchestration, capability baseline
+    domains: [meta, project creation, project management]
 
   image-forge:
     repo: qprime/image-forge

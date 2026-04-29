@@ -68,7 +68,7 @@ class ProjectContext:
 @dataclass(frozen=True)
 class Resolution:
     baseline_version: str
-    skills_dir: str
+    commands_dir: str
     invariants_dir: str
     conventions_dir: str
 
@@ -85,7 +85,7 @@ class Manifest:
     primary_pattern: str
     secondary_patterns: tuple[SecondaryPattern, ...]
     domains: tuple[str, ...]
-    language: str
+    language: str | None
     python_version: str | None
     toolchain: Toolchain
     axes: Axes
@@ -105,7 +105,7 @@ def load_manifest(
     """Load a manifest from disk and validate it.
 
     The loader is registry-unaware: callers pass the manifest path directly. The
-    baseline root is the directory holding `skills/pattern/`, `conventions/`, and
+    baseline root is the directory holding `commands/pattern/`, `conventions/`, and
     `invariants/` — used for pattern and domain registration checks.
     """
     manifest_path = Path(manifest_path)
@@ -157,8 +157,6 @@ def _validate_schema(raw: dict) -> None:
                 raise ManifestError("schema_version required")
             if missing == "patterns":
                 raise ManifestError("patterns required")
-            if missing == "language":
-                raise ManifestError("language required")
             if missing == "project_context":
                 raise ManifestError("project_context required")
             if missing == "resolution":
@@ -223,34 +221,34 @@ def _validate_semantics(raw: dict, *, baseline_root: Path, project_root: Path) -
                 f"unknown domain: {domain!r}; valid: {sorted(valid_domains)}"
             )
 
-    for key in ("skills_dir", "invariants_dir", "conventions_dir"):
+    for key in ("commands_dir", "invariants_dir", "conventions_dir"):
         _validate_relative_path(raw["resolution"][key], label=f"resolution.{key}")
 
     customizations = raw.get("customizations") or {}
     if customizations:
-        global_skills_dir = baseline_root / "skills" / "global"
-        valid_skills = (
-            {p.stem for p in global_skills_dir.glob("*.md") if "." not in p.stem}
-            if global_skills_dir.is_dir()
+        global_commands_dir = baseline_root / "commands" / "global"
+        valid_commands = (
+            {p.stem for p in global_commands_dir.glob("*.md") if "." not in p.stem}
+            if global_commands_dir.is_dir()
             else set()
         )
-        for skill_name in customizations:
-            if skill_name not in valid_skills:
+        for command_name in customizations:
+            if command_name not in valid_commands:
                 raise ManifestError(
-                    f"unknown skill in customizations: {skill_name!r}; "
-                    f"valid: {sorted(valid_skills)}"
+                    f"unknown command in customizations: {command_name!r}; "
+                    f"valid: {sorted(valid_commands)}"
                 )
 
-    if raw.get("language") != "python":
+    if "language" in raw and raw["language"] != "python":
         warnings.warn(
-            f"language {raw.get('language')!r} has no baseline toolchain content",
+            f"language {raw['language']!r} has no baseline toolchain content",
             stacklevel=3,
         )
 
 
 def _registered_patterns(baseline_root: Path) -> set[str]:
     names: set[str] = set()
-    for sub in ("skills/pattern", "conventions/pattern", "invariants/pattern"):
+    for sub in ("commands/pattern", "conventions/pattern", "invariants/pattern"):
         d = baseline_root / sub
         if not d.is_dir():
             continue
@@ -298,7 +296,7 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
     res = raw["resolution"]
     resolution = Resolution(
         baseline_version=res["baseline_version"],
-        skills_dir=res["skills_dir"],
+        commands_dir=res["commands_dir"],
         invariants_dir=res["invariants_dir"],
         conventions_dir=res["conventions_dir"],
     )
@@ -324,7 +322,7 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         primary_pattern=raw["patterns"]["primary"],
         secondary_patterns=secondary,
         domains=tuple(raw.get("domains") or ()),
-        language=raw["language"],
+        language=raw.get("language"),
         python_version=raw.get("python_version"),
         toolchain=toolchain,
         axes=axes,

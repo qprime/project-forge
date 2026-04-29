@@ -42,11 +42,11 @@ def plan_update(
     baseline_root = Path(baseline_root)
     project_root = Path(project_root)
     resolved = resolve(manifest, baseline_root=baseline_root, project_root=project_root)
-    skills_dir = project_root / manifest.resolution.skills_dir
+    commands_dir = project_root / manifest.resolution.commands_dir
     changes: list[FileChange] = []
-    for name in sorted(resolved.skills):
-        body = resolved.skills[name]
-        target = skills_dir / f"{name}.md"
+    for name in sorted(resolved.commands):
+        body = resolved.commands[name]
+        target = commands_dir / f"{name}.md"
         if target.is_file():
             current = target.read_text(encoding="utf-8")
             if current == body:
@@ -116,7 +116,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--apply", action="store_true", help="write composed skills to disk")
+    parser.add_argument("--apply", action="store_true", help="write composed commands to disk")
     parser.add_argument(
         "--exit-code",
         action="store_true",

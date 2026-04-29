@@ -29,7 +29,7 @@ project_context:
 
 resolution:
   baseline_version: "2026-04-27"
-  skills_dir: .claude/commands/
+  commands_dir: .claude/commands/
   invariants_dir: docs/invariants/
   conventions_dir: docs/conventions/
 

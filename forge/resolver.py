@@ -22,7 +22,7 @@ class ResolverError(Exception):
 
 @dataclass(frozen=True)
 class ResolvedProject:
-    skills: dict[str, str]
+    commands: dict[str, str]
     invariants: str
     conventions: dict[str, str]
 
@@ -49,34 +49,34 @@ def resolve(
             stacklevel=2,
         )
 
-    skills = _compose_skills(manifest, baseline_root, project_root)
+    commands = _compose_commands(manifest, baseline_root, project_root)
     invariants = _compose_invariants(manifest, baseline_root, project_root)
     conventions = _compose_conventions(manifest, baseline_root, project_root)
 
-    return ResolvedProject(skills=skills, invariants=invariants, conventions=conventions)
+    return ResolvedProject(commands=commands, invariants=invariants, conventions=conventions)
 
 
-def _compose_skills(
+def _compose_commands(
     manifest: Manifest, baseline_root: Path, project_root: Path
 ) -> dict[str, str]:
-    global_dir = baseline_root / "skills" / "global"
-    skill_names = sorted(
+    global_dir = baseline_root / "commands" / "global"
+    command_names = sorted(
         f.stem for f in global_dir.glob("*.md") if "." not in f.stem
     )
 
-    pattern_dir = baseline_root / "skills" / "pattern" / manifest.primary_pattern
+    pattern_dir = baseline_root / "commands" / "pattern" / manifest.primary_pattern
 
     out: dict[str, str] = {}
-    for name in skill_names:
+    for name in command_names:
         template = _read_text(global_dir / f"{name}.md")
         pattern_contrib = _parse_contribution(pattern_dir / f"{name}.md")
         project_contrib = _project_contribution(manifest, name)
-        out[name] = _compose_skill(name, template, pattern_contrib, project_contrib)
+        out[name] = _compose_command(name, template, pattern_contrib, project_contrib)
     return out
 
 
-def _project_contribution(manifest: Manifest, skill_name: str) -> _Contribution:
-    custom = manifest.customizations.get(skill_name)
+def _project_contribution(manifest: Manifest, command_name: str) -> _Contribution:
+    custom = manifest.customizations.get(command_name)
     if custom is None:
         return _Contribution(slots={}, inserts={}, source=manifest.source_path)
     return _Contribution(
@@ -86,8 +86,8 @@ def _project_contribution(manifest: Manifest, skill_name: str) -> _Contribution:
     )
 
 
-def _compose_skill(
-    skill: str,
+def _compose_command(
+    command: str,
     template: str,
     pattern: _Contribution,
     project: _Contribution,
@@ -99,13 +99,13 @@ def _compose_skill(
             if placeholder not in template_slots:
                 raise ResolverError(
                     f"unknown placeholder {placeholder!r} in {contrib.source}: "
-                    f"not defined in skills/global/{skill}.md"
+                    f"not defined in commands/global/{command}.md"
                 )
         for placeholder in contrib.inserts:
             if placeholder not in template_inserts:
                 raise ResolverError(
                     f"unknown placeholder {placeholder!r} in {contrib.source}: "
-                    f"not defined in skills/global/{skill}.md"
+                    f"not defined in commands/global/{command}.md"
                 )
 
     def slot_sub(match: re.Match[str]) -> str:
@@ -119,7 +119,7 @@ def _compose_skill(
             value = default
         else:
             raise ResolverError(
-                f"slot {name!r} in {skill}: no layer filled it; no inline default"
+                f"slot {name!r} in {command}: no layer filled it; no inline default"
             )
         if _is_paragraph_embedded(match.string, match.start(), match.end()):
             if value.endswith("\n"):
@@ -182,6 +182,8 @@ def _compose_conventions(
     manifest: Manifest, baseline_root: Path, project_root: Path
 ) -> dict[str, str]:
     language = manifest.language
+    if language is None:
+        return {}
     candidates = [
         baseline_root / "baseline" / "coding_guidelines.md",
         baseline_root / "conventions" / "pattern" / manifest.primary_pattern / f"{language}.md",

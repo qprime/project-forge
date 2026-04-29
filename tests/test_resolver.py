@@ -35,24 +35,24 @@ def _write(path: Path, text: str) -> Path:
 def _build_baseline(
     root: Path,
     *,
-    skill_template: str = "# Tinyskill\n\nValue: {{X=ok}}\n",
+    command_template: str = "# Tinyskill\n\nValue: {{X=ok}}\n",
     pattern: str = "tiny",
-    pattern_skill: str | None = None,
+    pattern_command: str | None = None,
     invariants_global: str | None = "## GL-1 — Foo\n\nrule\n",
     invariants_pattern: str | None = None,
     invariants_domain: dict[str, str] | None = None,
     conventions_global: str | None = "# Global conventions\n",
     conventions_pattern: dict[str, str] | None = None,
     conventions_domain: dict[str, dict[str, str]] | None = None,
-    extra_global_skills: dict[str, str] | None = None,
+    extra_global_commands: dict[str, str] | None = None,
 ) -> Path:
-    _write(root / "skills" / "global" / "tinyskill.md", skill_template)
-    if extra_global_skills:
-        for name, body in extra_global_skills.items():
-            _write(root / "skills" / "global" / f"{name}.md", body)
-    (root / "skills" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
-    if pattern_skill is not None:
-        _write(root / "skills" / "pattern" / pattern / "tinyskill.md", pattern_skill)
+    _write(root / "commands" / "global" / "tinyskill.md", command_template)
+    if extra_global_commands:
+        for name, body in extra_global_commands.items():
+            _write(root / "commands" / "global" / f"{name}.md", body)
+    (root / "commands" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
+    if pattern_command is not None:
+        _write(root / "commands" / "pattern" / pattern / "tinyskill.md", pattern_command)
     (root / "conventions" / "domain").mkdir(parents=True, exist_ok=True)
     (root / "conventions" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
     if invariants_global is not None:
@@ -79,8 +79,8 @@ def _build_manifest(
     primary: str = "tiny",
     domains: tuple[str, ...] = (),
     secondaries: tuple[tuple[str, str], ...] = (),
-    language: str = "python",
-    skills_dir: str = ".claude/commands/",
+    language: str | None = "python",
+    commands_dir: str = ".claude/commands/",
     invariants_dir: str = "docs/invariants/",
     conventions_dir: str = "docs/conventions/",
     customizations: dict | None = None,
@@ -92,18 +92,18 @@ def _build_manifest(
             "secondary": [{"name": n, "scope": s} for n, s in secondaries],
         },
         "domains": list(domains),
-        "language": language,
-        "python_version": "3.12" if language == "python" else None,
         "project_context": {"description": "synthetic"},
         "resolution": {
             "baseline_version": "2026-04-27",
-            "skills_dir": skills_dir,
+            "commands_dir": commands_dir,
             "invariants_dir": invariants_dir,
             "conventions_dir": conventions_dir,
         },
     }
-    if language != "python":
-        payload.pop("python_version")
+    if language is not None:
+        payload["language"] = language
+        if language == "python":
+            payload["python_version"] = "3.12"
     if customizations is not None:
         payload["customizations"] = customizations
     (project_root / ".forge").mkdir(parents=True, exist_ok=True)
@@ -118,18 +118,18 @@ def _build_manifest(
 # Sample-project end-to-end (positive)
 #
 # `tests/fixtures/sample_project/` is a synthetic compiler-pattern project
-# that exercises the full pipeline against forge's real `skills/global/` and
-# `skills/pattern/compiler/`. It plays the role the forge dogfood test
+# that exercises the full pipeline against forge's real `commands/global/` and
+# `commands/pattern/compiler/`. It plays the role the forge dogfood test
 # previously did — a real, complete manifest driving composition end to end.
 # ---------------------------------------------------------------------------
 
 
-def _authored_probes(manifest: Manifest, skill_name: str) -> list[tuple[str, str, str]]:
-    """Iterate manifest.customizations for a skill and return (kind, name, probe)
+def _authored_probes(manifest: Manifest, command_name: str) -> list[tuple[str, str, str]]:
+    """Iterate manifest.customizations for a command and return (kind, name, probe)
     tuples for each declared slot/insert. The probe is the first non-blank line
-    of the body as authored — if the composed skill is missing the probe,
+    of the body as authored — if the composed command is missing the probe,
     content was lost during composition."""
-    custom = manifest.customizations.get(skill_name)
+    custom = manifest.customizations.get(command_name)
     if custom is None:
         return []
     out: list[tuple[str, str, str]] = []
@@ -169,7 +169,7 @@ def _paragraph_embedded_slots(template: str) -> list[tuple[str, str | None, str]
 def test_sample_project_resolves_cleanly():
     """The sample project resolves cleanly against forge's baseline.
 
-    The expected skill set is derived from `skills/global/*.md` so adding a
+    The expected skill set is derived from `commands/global/*.md` so adding a
     new global skill without a matching sample-project contribution surfaces
     here. Every composed skill must be non-empty, contain no leftover slot
     placeholders or insert markers, and contain every authored slot/insert
@@ -181,14 +181,14 @@ def test_sample_project_resolves_cleanly():
 
     expected = {
         f.stem
-        for f in (REPO_ROOT / "skills" / "global").glob("*.md")
+        for f in (REPO_ROOT / "commands" / "global").glob("*.md")
         if "." not in f.stem
     }
-    assert set(out.skills.keys()) == expected
+    assert set(out.commands.keys()) == expected
 
-    global_dir = REPO_ROOT / "skills" / "global"
+    global_dir = REPO_ROOT / "commands" / "global"
 
-    for name, body in out.skills.items():
+    for name, body in out.commands.items():
         assert body, f"composed skill {name!r} is empty"
         assert PLACEHOLDER_RE.search(body) is None, (
             f"composed skill {name!r} still has slot placeholders"
@@ -236,13 +236,13 @@ def test_full_stack_global_pattern_project(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template=(
+        command_template=(
             "# Tinyskill\n\n"
             "Value: {{X}}\n"
             "Default: {{Y=fallback}}\n\n"
             "<!-- insert: bullets -->\n"
         ),
-        pattern_skill=(
+        pattern_command=(
             "## slot: X\n\nfrom-pattern\n\n"
             "## insert: bullets\n\n- pattern bullet\n"
         ),
@@ -253,12 +253,12 @@ def test_full_stack_global_pattern_project(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "Value: from-pattern" in skill
-    assert "Default: fallback" in skill
-    assert "- pattern bullet" in skill
-    assert "- project bullet" in skill
-    assert "<!-- insert:" not in skill
+    command = out.commands["tinyskill"]
+    assert "Value: from-pattern" in command
+    assert "Default: fallback" in command
+    assert "- pattern bullet" in command
+    assert "- project bullet" in command
+    assert "<!-- insert:" not in command
 
 
 def test_slot_precedence_project_over_pattern_over_default(tmp_path: Path):
@@ -266,8 +266,8 @@ def test_slot_precedence_project_over_pattern_over_default(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=template-default}}\n",
-        pattern_skill="## slot: X\n\npattern-value\n",
+        command_template="# T\n\n{{X=template-default}}\n",
+        pattern_command="## slot: X\n\npattern-value\n",
     )
     manifest_path = _build_manifest(
         project,
@@ -275,9 +275,9 @@ def test_slot_precedence_project_over_pattern_over_default(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    assert "project-value" in out.skills["tinyskill"]
-    assert "pattern-value" not in out.skills["tinyskill"]
-    assert "template-default" not in out.skills["tinyskill"]
+    assert "project-value" in out.commands["tinyskill"]
+    assert "pattern-value" not in out.commands["tinyskill"]
+    assert "template-default" not in out.commands["tinyskill"]
 
 
 def test_slot_pattern_used_when_no_project_layer(tmp_path: Path):
@@ -285,23 +285,23 @@ def test_slot_pattern_used_when_no_project_layer(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=template-default}}\n",
-        pattern_skill="## slot: X\n\npattern-value\n",
+        command_template="# T\n\n{{X=template-default}}\n",
+        pattern_command="## slot: X\n\npattern-value\n",
     )
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    assert "pattern-value" in out.skills["tinyskill"]
+    assert "pattern-value" in out.commands["tinyskill"]
 
 
 def test_slot_inline_default_used_when_no_layer(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{X=the-default}}\n")
+    _build_baseline(baseline, command_template="# T\n\n{{X=the-default}}\n")
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    assert "the-default" in out.skills["tinyskill"]
+    assert "the-default" in out.commands["tinyskill"]
 
 
 def test_insert_ordering_pattern_then_project(tmp_path: Path):
@@ -309,8 +309,8 @@ def test_insert_ordering_pattern_then_project(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n<!-- insert: items -->\n",
-        pattern_skill="## insert: items\n\nP1\n",
+        command_template="# T\n\n<!-- insert: items -->\n",
+        pattern_command="## insert: items\n\nP1\n",
     )
     manifest_path = _build_manifest(
         project,
@@ -318,9 +318,9 @@ def test_insert_ordering_pattern_then_project(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert skill.index("P1") < skill.index("Q1")
-    between = skill[skill.index("P1") + 2 : skill.index("Q1")]
+    command = out.commands["tinyskill"]
+    assert command.index("P1") < command.index("Q1")
+    between = command[command.index("P1") + 2 : command.index("Q1")]
     assert between == "\n\n"
 
 
@@ -329,14 +329,14 @@ def test_empty_insert_removes_comment_line(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\nbefore\n<!-- insert: missing -->\nafter\n",
+        command_template="# T\n\nbefore\n<!-- insert: missing -->\nafter\n",
     )
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "<!-- insert:" not in skill
-    assert "before\nafter\n" in skill
+    command = out.commands["tinyskill"]
+    assert "<!-- insert:" not in command
+    assert "before\nafter\n" in command
 
 
 def test_unknown_placeholder_in_contribution_errors(tmp_path: Path):
@@ -344,8 +344,8 @@ def test_unknown_placeholder_in_contribution_errors(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=ok}}\n",
-        pattern_skill="## slot: NOT_DEFINED\n\nbogus\n",
+        command_template="# T\n\n{{X=ok}}\n",
+        pattern_command="## slot: NOT_DEFINED\n\nbogus\n",
     )
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
@@ -356,7 +356,7 @@ def test_unknown_placeholder_in_contribution_errors(tmp_path: Path):
 def test_required_slot_unfilled_errors(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{REQUIRED}}\n")
+    _build_baseline(baseline, command_template="# T\n\n{{REQUIRED}}\n")
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     with pytest.raises(ResolverError, match="slot 'REQUIRED'"):
@@ -368,8 +368,8 @@ def test_empty_slot_body_falls_through_to_pattern(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X}}\n",
-        pattern_skill="## slot: X\n\npattern-wins\n",
+        command_template="# T\n\n{{X}}\n",
+        pattern_command="## slot: X\n\npattern-wins\n",
     )
     manifest_path = _build_manifest(
         project,
@@ -377,7 +377,7 @@ def test_empty_slot_body_falls_through_to_pattern(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    assert "pattern-wins" in out.skills["tinyskill"]
+    assert "pattern-wins" in out.commands["tinyskill"]
 
 
 def test_invariants_compose_global_pattern_domain_project(tmp_path: Path):
@@ -442,8 +442,8 @@ def test_conventions_concatenation(tmp_path: Path):
 def test_secondary_patterns_warning(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
-    (baseline / "skills" / "pattern" / "extra").mkdir(parents=True, exist_ok=True)
+    _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
+    (baseline / "commands" / "pattern" / "extra").mkdir(parents=True, exist_ok=True)
     (baseline / "conventions" / "pattern" / "extra").mkdir(parents=True, exist_ok=True)
     manifest_path = _build_manifest(
         project, secondaries=(("extra", "src/sub"),)
@@ -461,7 +461,7 @@ def test_language_with_no_contributions_returns_empty_string(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=ok}}\n",
+        command_template="# T\n\n{{X=ok}}\n",
         conventions_global=None,
     )
     manifest_path = _build_manifest(project, language="rust")
@@ -472,20 +472,37 @@ def test_language_with_no_contributions_returns_empty_string(tmp_path: Path):
     assert out.conventions == {"rust": ""}
 
 
-def test_skill_enumeration_filters_inner_dot_names(tmp_path: Path):
+def test_omitted_language_resolves_with_empty_conventions(tmp_path: Path):
+    """A manifest without `language` (notes-first projects) loads silently and
+    composes conventions as `{}` — not `{"": ""}`. Guards against the empty-
+    string-keyed dict shape that would otherwise leak through."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
+    manifest_path = _build_manifest(project, language=None)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        manifest = load_manifest(manifest_path, baseline_root=baseline)
+    assert manifest.language is None
+    assert not any("toolchain content" in str(w.message) for w in caught)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    assert out.conventions == {}
+
+
+def test_command_enumeration_filters_inner_dot_names(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=ok}}\n",
-        extra_global_skills={"architect.notes": "stray notes\n"},
+        command_template="# T\n\n{{X=ok}}\n",
+        extra_global_commands={"architect.notes": "stray notes\n"},
     )
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    assert "tinyskill" in out.skills
-    assert "architect.notes" not in out.skills
-    assert "architect" not in out.skills
+    assert "tinyskill" in out.commands
+    assert "architect.notes" not in out.commands
+    assert "architect" not in out.commands
 
 
 def test_block_boundary_handles_subheadings_and_multiline_bodies(tmp_path: Path):
@@ -504,17 +521,17 @@ def test_block_boundary_handles_subheadings_and_multiline_bodies(tmp_path: Path)
         "## slot: X\n\n"
         "the-x\n"
     )
-    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    _build_baseline(baseline, command_template=template, pattern_command=pattern_contrib)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "Top-level paragraph." in skill
-    assert "### Sub-heading" in skill
-    assert "Sub-content with more lines." in skill
-    assert "the-x" in skill
-    assert "## insert:" not in skill
-    assert "## slot:" not in skill
+    command = out.commands["tinyskill"]
+    assert "Top-level paragraph." in command
+    assert "### Sub-heading" in command
+    assert "Sub-content with more lines." in command
+    assert "the-x" in command
+    assert "## insert:" not in command
+    assert "## slot:" not in command
 
 
 def test_h2_inside_body_does_not_terminate_block(tmp_path: Path):
@@ -526,13 +543,13 @@ def test_h2_inside_body_does_not_terminate_block(tmp_path: Path):
         "## Subsection\n\n"
         "Body content under the H2.\n"
     )
-    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    _build_baseline(baseline, command_template=template, pattern_command=pattern_contrib)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "## Subsection" in skill
-    assert "Body content under the H2." in skill
+    command = out.commands["tinyskill"]
+    assert "## Subsection" in command
+    assert "Body content under the H2." in command
 
 
 def test_h2_inside_fenced_code_block_does_not_terminate_block(tmp_path: Path):
@@ -548,14 +565,14 @@ def test_h2_inside_fenced_code_block_does_not_terminate_block(tmp_path: Path):
         "```\n\n"
         "Trailing prose after the fence.\n"
     )
-    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    _build_baseline(baseline, command_template=template, pattern_command=pattern_contrib)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "## Implementation Summary" in skill
-    assert "Trailing prose after the fence." in skill
-    assert skill.count("```") == 2
+    command = out.commands["tinyskill"]
+    assert "## Implementation Summary" in command
+    assert "Trailing prose after the fence." in command
+    assert command.count("```") == 2
 
 
 def test_multiple_inserts_with_internal_h2(tmp_path: Path):
@@ -570,17 +587,17 @@ def test_multiple_inserts_with_internal_h2(tmp_path: Path):
         "## Second Subhead\n\n"
         "second body\n"
     )
-    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    _build_baseline(baseline, command_template=template, pattern_command=pattern_contrib)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "## First Subhead" in skill
-    assert "first body" in skill
-    assert "## Second Subhead" in skill
-    assert "second body" in skill
-    assert skill.index("first body") < skill.index("## Second Subhead")
-    assert "second body" not in skill[: skill.index("## Second Subhead")]
+    command = out.commands["tinyskill"]
+    assert "## First Subhead" in command
+    assert "first body" in command
+    assert "## Second Subhead" in command
+    assert "second body" in command
+    assert command.index("first body") < command.index("## Second Subhead")
+    assert "second body" not in command[: command.index("## Second Subhead")]
 
 
 def test_slot_header_inside_fence_is_quoted_not_parsed(tmp_path: Path):
@@ -596,13 +613,13 @@ def test_slot_header_inside_fence_is_quoted_not_parsed(tmp_path: Path):
         "```\n\n"
         "End of docs.\n"
     )
-    _build_baseline(baseline, skill_template=template, pattern_skill=pattern_contrib)
+    _build_baseline(baseline, command_template=template, pattern_command=pattern_contrib)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "## slot: NESTED" in skill
-    assert "End of docs." in skill
+    command = out.commands["tinyskill"]
+    assert "## slot: NESTED" in command
+    assert "End of docs." in command
 
 
 def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
@@ -618,12 +635,12 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
         "```\r\n\r\n"
         "tail prose\r\n"
     )
-    (baseline / "skills" / "global").mkdir(parents=True, exist_ok=True)
-    (baseline / "skills" / "global" / "tinyskill.md").write_text(
+    (baseline / "commands" / "global").mkdir(parents=True, exist_ok=True)
+    (baseline / "commands" / "global" / "tinyskill.md").write_text(
         template, encoding="utf-8"
     )
-    (baseline / "skills" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
-    (baseline / "skills" / "pattern" / "tiny" / "tinyskill.md").write_bytes(
+    (baseline / "commands" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
+    (baseline / "commands" / "pattern" / "tiny" / "tinyskill.md").write_bytes(
         pattern_text.encode("utf-8")
     )
     (baseline / "conventions" / "pattern" / "tiny").mkdir(parents=True, exist_ok=True)
@@ -636,21 +653,21 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "## Sub" in skill
-    assert "prose" in skill
-    assert "## Implementation Summary" in skill
-    assert "tail prose" in skill
+    command = out.commands["tinyskill"]
+    assert "## Sub" in command
+    assert "prose" in command
+    assert "## Implementation Summary" in command
+    assert "tail prose" in command
 
 
 def test_authored_probes_reads_from_manifest(tmp_path: Path):
     """The dogfood oracle (`_authored_probes`) must iterate
-    manifest.customizations, not <skills_dir>/<name>.custom.md. Without this,
+    manifest.customizations, not <commands_dir>/<name>.custom.md. Without this,
     the helper would return [] for every skill after the .custom.md migration
     and the body-presence check would silently pass vacuously."""
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
+    _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
     manifest_path = _build_manifest(
         project,
         customizations={
@@ -684,7 +701,7 @@ def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
         "{{SECTION=section-default}}\n\n"
         "Trailing paragraph.\n"
     )
-    _build_baseline(baseline, skill_template=template)
+    _build_baseline(baseline, command_template=template)
     manifest_path = _build_manifest(
         project,
         customizations={
@@ -698,9 +715,9 @@ def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "Read (a) X, (b) embedded-value, and (c) Y." in skill
-    assert "section-value\n\n\nTrailing paragraph." in skill
+    command = out.commands["tinyskill"]
+    assert "Read (a) X, (b) embedded-value, and (c) Y." in command
+    assert "section-value\n\n\nTrailing paragraph." in command
 
 
 def test_paragraph_embedded_slot_default_path(tmp_path: Path):
@@ -715,12 +732,12 @@ def test_paragraph_embedded_slot_default_path(tmp_path: Path):
         "{{SECTION=section-default}}\n\n"
         "Trailing paragraph.\n"
     )
-    _build_baseline(baseline, skill_template=template)
+    _build_baseline(baseline, command_template=template)
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "Read (a) X, (b) default-clause, and (c) Y." in skill
+    command = out.commands["tinyskill"]
+    assert "Read (a) X, (b) default-clause, and (c) Y." in command
 
 
 def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
@@ -731,16 +748,16 @@ def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
     template = "# T\n\nClause: {{EMBEDDED=default-clause}}."
-    _build_baseline(baseline, skill_template=template)
+    _build_baseline(baseline, command_template=template)
     manifest_path = _build_manifest(
         project,
         customizations={"tinyskill": {"slots": {"EMBEDDED": "eof-value"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "Clause: eof-value." in skill
-    assert "eof-value\n." not in skill
+    command = out.commands["tinyskill"]
+    assert "Clause: eof-value." in command
+    assert "eof-value\n." not in command
 
 
 def test_unknown_placeholder_in_manifest_customization_errors(tmp_path: Path):
@@ -748,7 +765,7 @@ def test_unknown_placeholder_in_manifest_customization_errors(tmp_path: Path):
     manifest path as the locator (not a synthetic locator)."""
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
+    _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
     manifest_path = _build_manifest(
         project,
         customizations={"tinyskill": {"slots": {"NOT_A_SLOT": "v"}}},
@@ -766,7 +783,7 @@ def test_resolver_reads_customizations_from_manifest(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# T\n\n{{X=default-x}}\n\n<!-- insert: bullets -->\n",
+        command_template="# T\n\n{{X=default-x}}\n\n<!-- insert: bullets -->\n",
     )
     manifest_path = _build_manifest(
         project,
@@ -779,21 +796,21 @@ def test_resolver_reads_customizations_from_manifest(tmp_path: Path):
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
-    skill = out.skills["tinyskill"]
-    assert "manifest-x" in skill
-    assert "- from manifest" in skill
+    command = out.commands["tinyskill"]
+    assert "manifest-x" in command
+    assert "- from manifest" in command
     assert not (project / ".claude" / "commands" / "tinyskill.custom.md").exists()
 
 
 def test_resolved_project_is_frozen(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
-    _build_baseline(baseline, skill_template="# T\n\n{{X=ok}}\n")
+    _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
     with pytest.raises(Exception):
-        out.skills = {}  # type: ignore[misc]
+        out.commands = {}  # type: ignore[misc]
 
 
 # ---------------------------------------------------------------------------
@@ -804,14 +821,14 @@ def test_resolved_project_is_frozen(tmp_path: Path):
 # predicate (no `- Check ` prefix bullets in the resolved `What You Do`
 # block) false-positives on the long-standing baseline bullet
 # `- Check structural fit — does this design compose well with what exists?`
-# in `skills/global/architect.md`, which is one of seven designed
+# in `commands/global/architect.md`, which is one of seven designed
 # conversation moves and unchanged by #17. The slot-mechanism tests below
 # catch the actual regression vector.
 # ---------------------------------------------------------------------------
 
 
 def test_architect_template_has_no_domain_bullets_slot():
-    template = (REPO_ROOT / "skills" / "global" / "architect.md").read_text(
+    template = (REPO_ROOT / "commands" / "global" / "architect.md").read_text(
         encoding="utf-8"
     )
     assert "<!-- insert: domain-bullets -->" not in template
@@ -820,7 +837,7 @@ def test_architect_template_has_no_domain_bullets_slot():
 def test_no_pattern_architect_contributes_domain_bullets():
     from forge.resolver import _parse_contribution
 
-    pattern_dir = REPO_ROOT / "skills" / "pattern"
+    pattern_dir = REPO_ROOT / "commands" / "pattern"
     for pattern in sorted(p for p in pattern_dir.iterdir() if p.is_dir()):
         contrib_path = pattern / "architect.md"
         if not contrib_path.is_file():
@@ -836,8 +853,8 @@ def test_orphaned_domain_bullets_contribution_errors(tmp_path: Path):
     project = tmp_path / "proj"
     _build_baseline(
         baseline,
-        skill_template="# Architect\n\n{{X=ok}}\n",
-        pattern_skill="## insert: domain-bullets\n\n- Check the thing.\n",
+        command_template="# Architect\n\n{{X=ok}}\n",
+        pattern_command="## insert: domain-bullets\n\n- Check the thing.\n",
     )
     manifest_path = _build_manifest(project)
     manifest = load_manifest(manifest_path, baseline_root=baseline)
@@ -848,7 +865,7 @@ def test_orphaned_domain_bullets_contribution_errors(tmp_path: Path):
 def test_architect_composes_clean_post_migration():
     manifest = load_manifest(SAMPLE_MANIFEST, baseline_root=REPO_ROOT)
     out = resolve(manifest, baseline_root=REPO_ROOT, project_root=SAMPLE_PROJECT)
-    architect = out.skills["architect"]
+    architect = out.commands["architect"]
     assert INSERT_RE.search(architect) is None
     assert "<!-- insert:" not in architect
     assert "domain-bullets" not in architect

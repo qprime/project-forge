@@ -15,7 +15,7 @@ Draft a GitHub issue implementation specification for: $ARGUMENTS
 
 3. **Check for a smaller change.** Before finalizing, ask: could a narrower scope — fewer files, fewer moving parts, less ceremony — achieve the same goal? If yes, redraft around that. Spec size should match change size. This is about scope, not about removing structure that serves invariants, type safety, or tests.
 
-4. **Self-review the draft.** Read it back as if you hadn't written it. Flag anything you're unsure about, anything resting on an unverified assumption, and anything that sounds confident but isn't grounded in what you actually read. Surface those to the user with the draft.
+4. **Self-review the draft.** Read it back as if you hadn't written it. Flag anything you're unsure about, anything resting on an unverified assumption, and anything that sounds confident but isn't grounded in what you actually read. Surface those to the user with the draft if they need to be addressed.
 
 5. **Present the draft** to the user for review before creating the issue.
 
@@ -80,6 +80,11 @@ TestClassName:
     test_case_name — description of what it verifies
 ```
 
+Each test must verify **behavior**, not vocabulary or the act of having made a decision. Disqualifying patterns:
+- Tests that pin a name, term, or string that the code already self-evidences (e.g. asserting a directory is called `skills/` rather than `commands/`)
+- Tests that exist to prevent re-litigating a choice made during the design discussion
+- Tests whose failure mode is "someone renamed a thing" rather than "someone broke a behavior"
+
 Include at least one test whose failure would catch a plausible wrong implementation — not just one that passes when the code is correct.
 
 
@@ -88,6 +93,11 @@ Anti-patterns and scope boundaries that aren't obvious from the positive rules a
 - Prevents a failure mode that actually happened in a prior issue/review
 - Non-obvious from the Design / Implementation sections (a reader would not infer it)
 - Draws a scope boundary against adjacent work (other open issues, sibling subsystems)
+
+The spec describes the **target state**, not the deliberation that produced it. Do not include:
+- Alternatives considered and rejected during the design conversation ("don't use approach X" when X was never going to be implemented anyway)
+- Terminology or framing that was changed mid-discussion ("don't call it Y" — the spec uses the chosen term; that's enough)
+- Cautions that only make sense as residue from the chat that led to the spec
 
 If a bullet just restates a rule already given positively, cut it. Omit the whole section if nothing meets the bar.
 
@@ -108,5 +118,6 @@ Before presenting the draft, verify:
 - [ ] Function signatures match the actual codebase
 - [ ] Invariant IDs are real
 - [ ] No section is vague hand-waving
-- [ ] Every "What NOT to do" bullet meets the bar; no bullet restates a positive rule from Design/Implementation
+- [ ] Every "What NOT to do" bullet meets the bar; no bullet restates a positive rule from Design/Implementation, and none is residue from the design conversation (rejected alternatives, abandoned terminology)
 - [ ] Test cases have names, not just descriptions
+- [ ] No test verifies a name/term/string instead of behavior

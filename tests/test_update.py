@@ -39,14 +39,14 @@ def _write(path: Path, text: str) -> Path:
 def _build_baseline(
     root: Path,
     *,
-    skill_template: str = "# Tinyskill\n\nValue: {{X=ok}}\n",
+    command_template: str = "# Tinyskill\n\nValue: {{X=ok}}\n",
     pattern: str = "tiny",
-    pattern_skill: str | None = None,
+    pattern_command: str | None = None,
 ) -> Path:
-    _write(root / "skills" / "global" / "tinyskill.md", skill_template)
-    (root / "skills" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
-    if pattern_skill is not None:
-        _write(root / "skills" / "pattern" / pattern / "tinyskill.md", pattern_skill)
+    _write(root / "commands" / "global" / "tinyskill.md", command_template)
+    (root / "commands" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
+    if pattern_command is not None:
+        _write(root / "commands" / "pattern" / pattern / "tinyskill.md", pattern_command)
     (root / "conventions" / "domain").mkdir(parents=True, exist_ok=True)
     (root / "conventions" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
     _write(root / "invariants" / "global.md", "## GL-1 — Foo\n\nrule\n")
@@ -58,7 +58,7 @@ def _build_manifest_file(
     project_root: Path,
     *,
     primary: str = "tiny",
-    skills_dir: str = ".claude/commands/",
+    commands_dir: str = ".claude/commands/",
 ) -> Path:
     payload = {
         "schema_version": 1,
@@ -69,7 +69,7 @@ def _build_manifest_file(
         "project_context": {"description": "synthetic"},
         "resolution": {
             "baseline_version": "2026-04-27",
-            "skills_dir": skills_dir,
+            "commands_dir": commands_dir,
             "invariants_dir": "docs/invariants/",
             "conventions_dir": "docs/conventions/",
         },
@@ -97,7 +97,7 @@ def _setup(tmp_path: Path, **baseline_kwargs):
 class TestPlanUpdate:
     def test_unchanged_when_disk_matches(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
-        composed = resolve(manifest, baseline_root=baseline, project_root=project).skills["tinyskill"]
+        composed = resolve(manifest, baseline_root=baseline, project_root=project).commands["tinyskill"]
         target = project / ".claude" / "commands" / "tinyskill.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(composed, encoding="utf-8")
@@ -126,19 +126,19 @@ class TestPlanUpdate:
 
     def test_only_resolver_owned_files_in_plan(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
-        skills_dir = project / ".claude" / "commands"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        (skills_dir / "bootstrap.md").write_text("forge command\n", encoding="utf-8")
-        (skills_dir / "survey.md").write_text("forge command\n", encoding="utf-8")
+        commands_dir = project / ".claude" / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        (commands_dir / "bootstrap.md").write_text("forge command\n", encoding="utf-8")
+        (commands_dir / "survey.md").write_text("forge command\n", encoding="utf-8")
         plan = plan_update(manifest, baseline_root=baseline, project_root=project)
         targets = {c.path.name for c in plan.changes}
         assert targets == {"tinyskill.md"}
 
     def test_prompt_files_never_targeted(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
-        skills_dir = project / ".claude" / "commands"
-        skills_dir.mkdir(parents=True, exist_ok=True)
-        prompt = skills_dir / "tinyskill.prompt.md"
+        commands_dir = project / ".claude" / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        prompt = commands_dir / "tinyskill.prompt.md"
         prompt.write_text("companion content\n", encoding="utf-8")
         plan = plan_update(manifest, baseline_root=baseline, project_root=project)
         targets = {c.path.name for c in plan.changes}
@@ -146,7 +146,7 @@ class TestPlanUpdate:
 
     def test_resolver_error_propagates(self, tmp_path: Path):
         baseline, project, manifest = _setup(
-            tmp_path, skill_template="# T\n\n{{REQUIRED}}\n"
+            tmp_path, command_template="# T\n\n{{REQUIRED}}\n"
         )
         with pytest.raises(ResolverError):
             plan_update(manifest, baseline_root=baseline, project_root=project)
@@ -160,7 +160,7 @@ class TestPlanUpdate:
 class TestApplyUpdate:
     def test_apply_writes_only_non_unchanged(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
-        composed = resolve(manifest, baseline_root=baseline, project_root=project).skills["tinyskill"]
+        composed = resolve(manifest, baseline_root=baseline, project_root=project).commands["tinyskill"]
         target = project / ".claude" / "commands" / "tinyskill.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(composed, encoding="utf-8")
@@ -187,9 +187,9 @@ class TestApplyUpdate:
     def test_apply_propagates_io_errors(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
         plan = plan_update(manifest, baseline_root=baseline, project_root=project)
-        skills_parent = project / ".claude"
-        skills_parent.mkdir(parents=True, exist_ok=True)
-        commands_dir = skills_parent / "commands"
+        claude_parent = project / ".claude"
+        claude_parent.mkdir(parents=True, exist_ok=True)
+        commands_dir = claude_parent / "commands"
         commands_dir.mkdir(exist_ok=True)
         commands_dir.chmod(0o500)
         try:
@@ -231,11 +231,11 @@ class TestSampleProjectUpdate:
         )
         plan = plan_update(proj_manifest, baseline_root=REPO_ROOT, project_root=proj)
 
-        expected_skills = {
-            f.stem for f in (REPO_ROOT / "skills" / "global").glob("*.md") if "." not in f.stem
+        expected_commands = {
+            f.stem for f in (REPO_ROOT / "commands" / "global").glob("*.md") if "." not in f.stem
         }
         targets = {c.path.stem for c in plan.changes}
-        assert targets == expected_skills
+        assert targets == expected_commands
         assert all(c.kind == "create" for c in plan.changes)
 
         apply_update(plan)
@@ -264,7 +264,7 @@ def _cli_args(project: Path, baseline: Path, *flags: str) -> list[str]:
 class TestCli:
     def test_no_apply_exits_zero_when_clean(self, tmp_path: Path, capsys):
         baseline, project, manifest = _setup(tmp_path)
-        composed = resolve(manifest, baseline_root=baseline, project_root=project).skills["tinyskill"]
+        composed = resolve(manifest, baseline_root=baseline, project_root=project).commands["tinyskill"]
         target = project / ".claude" / "commands" / "tinyskill.md"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(composed, encoding="utf-8")
@@ -296,7 +296,7 @@ class TestCli:
 
     def test_resolver_error_exits_two(self, tmp_path: Path, capsys):
         baseline, project, _ = _setup(
-            tmp_path, skill_template="# T\n\n{{REQUIRED}}\n"
+            tmp_path, command_template="# T\n\n{{REQUIRED}}\n"
         )
         rc = cli_main(_cli_args(project, baseline))
         assert rc == 2

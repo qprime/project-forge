@@ -1,6 +1,6 @@
 # Forge CLI architecture — trace and notes
 
-**Purpose.** Self-notes mapping the actual code path an invocation of `forge` follows today, what each layer does, and where bootstrap-related work would slot in. Authored by tracing source in `forge/` and `tests/` end-to-end.
+**Purpose.** Self-notes mapping the actual code path an invocation of `forge` follows today, what each layer does, and where create-related work would slot in. Authored by tracing source in `forge/` and `tests/` end-to-end.
 
 **Authoritative sources.** [forge/cli.py](../forge/cli.py), [forge/manifest.py](../forge/manifest.py), [forge/resolver.py](../forge/resolver.py), [forge/update.py](../forge/update.py), [forge/manifest.schema.json](../forge/manifest.schema.json), [pyproject.toml](../pyproject.toml). Tests confirm contracts: [tests/test_manifest.py](../tests/test_manifest.py), [tests/test_resolver.py](../tests/test_resolver.py), [tests/test_update.py](../tests/test_update.py).
 
@@ -20,7 +20,7 @@ So `forge <subcommand>` always lands in [forge/cli.py:10 main()](../forge/cli.py
 
 Today there is exactly **one** subcommand: `update`. The CLI is built with `argparse.add_subparsers(dest="command", required=True)` — running `forge` with no subcommand is an error. `forge update` delegates to `forge.update._run` via `args.func`.
 
-**Implication.** Adding `forge bootstrap` is a small structural change here: register a second sub-parser, point its `func` at a new entry. The existing dispatch shape is ready for siblings.
+**Implication.** Adding `forge create` is a small structural change here: register a second sub-parser, point its `func` at a new entry. The existing dispatch shape is ready for siblings.
 
 There is no `forge survey`, `forge status`, `forge monitor`, etc. yet. Those are LLM-side artifacts (markdown skills under `commands/forge/`), not CLI subcommands.
 
@@ -73,8 +73,8 @@ The schema enforces:
 - `patterns.primary` required (string); `secondary` optional array of `{name, scope}`.
 - `project_context.description` required (≤280 chars).
 - `resolution.{baseline_version, commands_dir, invariants_dir, conventions_dir}` all required; `baseline_version` matches `^\d{4}-\d{2}-\d{2}$`.
-- Optional top-level: `domains`, `language`, `python_version` (`^\d+\.\d+$`), `toolchain`, `axes`, `customizations`.
-- `customizations` is `{<command_name>: {slots?: {str: str}, inserts?: {str: str}}}` (`additionalProperties: false` per command).
+- Optional top-level: `domains`, `language`, `python_version` (`^\d+\.\d+$`), `toolchain`, `axes`, `project`.
+- `project` is `{<command_name>: {slots?: {str: str}, inserts?: {str: str}}}` (`additionalProperties: false` per command).
 
 **Error mapping.** `_validate_schema` translates jsonschema errors into specific `ManifestError` strings (e.g., `"patterns.primary required"`, `"unknown top-level key: …"`). This is what users see, not raw schema dumps.
 
@@ -87,14 +87,12 @@ Beyond schema:
 3. Same for each `secondary[].name`. `secondary[].scope` must be a relative path under `project_root` resolving to an existing directory; `..` rejected.
 4. `domains[]` must each be a directory under `<baseline_root>/conventions/domain/`.
 5. `resolution.{commands_dir, invariants_dir, conventions_dir}` must be relative paths without `..`.
-6. `customizations.<name>` must match an existing `<baseline_root>/commands/global/<name>.md` (filename stem; "stem with dot in it" excluded — e.g., `foo.prompt.md` cannot be a customization key).
+6. `project.<name>` must match an existing `<baseline_root>/commands/global/<name>.md` (filename stem; "stem with dot in it" excluded — e.g., `foo.prompt.md` cannot be a customization key).
 7. Warns (`UserWarning`) when `language` is present and not `python`. Bug-fixed under issue #19: warning suppressed when `language` is absent.
 
 ### Frozen dataclass build — `_build_manifest` — [manifest.py:270](../forge/manifest.py#L270)
 
-Produces `Manifest` (frozen) with read-only views: `customizations` is a `MappingProxyType` of `MappingProxyType`s. Slot/insert bodies are normalized via `_normalize_block` ([manifest.py:337](../forge/manifest.py#L337)) — strip leading `\n`, strip trailing whitespace, append single `\n` (empty string stays empty).
-
-**Note.** The dataclass field is `customizations: Mapping[str, SkillCustomization]` and the inner type is `SkillCustomization` (slots, inserts) — even though the rename to "commands" was issue 19's headline. Issue 19 renamed directory paths and `Resolution.commands_dir`; the legacy class name `SkillCustomization` survives. Cosmetic but worth noting if a future issue wants total uniformity.
+Produces `Manifest` (frozen) with read-only views: `project` is a `MappingProxyType` of `MappingProxyType`s. Slot/insert bodies are normalized via `_normalize_block` ([manifest.py:337](../forge/manifest.py#L337)) — strip leading `\n`, strip trailing whitespace, append single `\n` (empty string stays empty). The inner type is `ProjectLayer` ([manifest.py:77](../forge/manifest.py#L77)), aligning with the global/pattern/project layer model.
 
 ---
 
@@ -114,7 +112,7 @@ Pipeline: compose commands → compose invariants → compose conventions.
 for each <name>.md in baseline_root/commands/global/ (excluding any stem containing "."):
     template       = read commands/global/<name>.md
     pattern_contrib = parse commands/pattern/<primary>/<name>.md (if exists)
-    project_contrib = manifest.customizations[<name>] (if present)
+    project_contrib = manifest.project[<name>] (if present)
     out[<name>]    = _compose_command(template, pattern, project)
 ```
 
@@ -201,7 +199,7 @@ template:    baseline/commands/global/<name>.md
 pattern:     baseline/commands/pattern/<primary>/<name>.md   (optional)
             └── ## slot: NAME / ## insert: NAME blocks
 
-project:     manifest.customizations[<name>].{slots, inserts}  (optional)
+project:     manifest.project[<name>].{slots, inserts}  (optional)
 
 For each slot in template:
     project[slot] OR pattern[slot] OR inline_default OR error
@@ -238,11 +236,11 @@ That's the whole runtime. There is no LLM call, no prompt execution, no file gen
 
 ---
 
-## What `bootstrap` would need to add
+## What `forge create` would need to add
 
-Bootstrap is an *upstream* of update. Update consumes a manifest; bootstrap produces one.
+`forge create` is an *upstream* of update. Update consumes a manifest; create produces one.
 
-**Inputs** bootstrap must obtain:
+**Inputs** `forge create` must obtain:
 
 - A target project (path or registry name).
 - A spec doc (CLAUDE.md, README, design doc — whatever the project provides).
@@ -250,9 +248,9 @@ Bootstrap is an *upstream* of update. Update consumes a manifest; bootstrap prod
 - Project context (`description` is mandatory, ≤280 chars).
 - Resolution paths (`commands_dir`, `invariants_dir`, `conventions_dir`, `baseline_version`).
 - Optional skeleton fields: `language`, `python_version`, `toolchain`, `axes`, `domains`.
-- Customizations per command — produced by running `commands/custom/<command>.prompt.md` against the spec doc, the pattern contribution, and the global template.
+- Customizations per command — produced by running `commands/project/<command>.prompt.md` against the spec doc, the pattern contribution, and the global template.
 
-**Outputs** bootstrap must produce:
+**Outputs** `forge create` must produce:
 
 - `<target>/.forge/manifest.yaml` validating against `forge/manifest.schema.json`.
 - (Optionally) chained call to `apply_update(plan_update(...))` to materialize the resolved files.
@@ -261,28 +259,27 @@ Bootstrap is an *upstream* of update. Update consumes a manifest; bootstrap prod
 **Wire-in points the existing code provides:**
 
 - The CLI sub-parser pattern in [forge/cli.py:12](../forge/cli.py#L12) is ready for a second subcommand.
-- `apply_update` and `plan_update` are reusable as the second half of bootstrap (after the manifest is written).
-- `load_manifest` is the natural validation gate — bootstrap should call it on its own emitted YAML before declaring success.
-- `_registered_patterns` ([manifest.py:249](../forge/manifest.py#L249)) is the right helper to populate the user-facing pattern menu in an interactive bootstrap.
+- `apply_update` and `plan_update` are reusable as the second half of `forge create` (after the manifest is written).
+- `load_manifest` is the natural validation gate — `forge create` should call it on its own emitted YAML before declaring success.
+- `_registered_patterns` ([manifest.py:249](../forge/manifest.py#L249)) is the right helper to populate the user-facing pattern menu in an interactive `forge create`.
 
 **Wire-in points missing today:**
 
-- No registry-aware loader. Pattern names, project paths, and `baseline_version` are everywhere in `registry/projects.yaml` but no code reads it. A bootstrap that names the target by registry key would need this.
-- No prompt runner. Whether driven by Claude API or by emitting a paste-this-into-Claude bundle, `commands/custom/<command>.prompt.md` files are LLM-side instructions — they need an executor.
-- No skeleton-generation prompt. The six `commands/custom/*.prompt.md` only fill `customizations:`; nothing produces patterns/axes/project_context/resolution from a spec doc.
+- No registry-aware loader. Pattern names, project paths, and `baseline_version` are everywhere in `registry/projects.yaml` but no code reads it. A `forge create` invocation that names the target by registry key would need this.
+- No prompt runner. Whether driven by Claude API or by emitting a paste-this-into-Claude bundle, `commands/project/<command>.prompt.md` files are LLM-side instructions — they need an executor.
+- No skeleton-generation prompt. The six `commands/project/*.prompt.md` only fill `project:`; nothing produces patterns/axes/project_context/resolution from a spec doc.
 
 ---
 
 ## Things to keep in mind for future work
 
-- **Update writes only commands.** Invariants and conventions are composed but discarded. If/when bootstrap needs to write them into the target, this is a real change to `plan_update`.
+- **Update writes only commands.** Invariants and conventions are composed but discarded. If/when `forge create` needs to write them into the target, this is a real change to `plan_update`.
 - **Pattern registration is by directory existence.** Adding a new pattern means creating directories under `commands/pattern/`, `conventions/pattern/`, `invariants/pattern/`. No central registry file. `_registered_patterns` walks all three.
-- **Custom command names are validated against `commands/global/`.** A `customizations.foo:` block where `commands/global/foo.md` does not exist ⇒ `ManifestError` at load time, before resolution.
+- **Custom command names are validated against `commands/global/`.** A `project.foo:` block where `commands/global/foo.md` does not exist ⇒ `ManifestError` at load time, before resolution.
 - **Slot validation is two-stage:** schema permits arbitrary slot names; the resolver rejects names that aren't placeholders in the template. Schema is permissive; resolver is strict.
 - **Inserts are additive (pattern then project).** No subtraction. A pattern contribution that ships do-bullets cannot be suppressed at the project layer. Issue #18 trial surfaced this as F14.
 - **Templates have no section-conditional mechanism.** Inserts can only fill, not omit. Hard-coded sections in global templates ship to every project. Issue #18 trial surfaced this as F15.
-- **The `customizations` keys are bound to `commands/global/` filenames.** Pattern layer can ship a contribution; only the global template defines available placeholders. Adding a pattern-only command (no global counterpart) would bypass the validation gate.
-- **Resolver-v1 ignores secondary patterns** with a warning. Whatever bootstrap produces, secondary patterns are decorative until composition support arrives.
-- **`SkillCustomization` is the legacy class name.** Issue 19 renamed `Resolution.skills_dir → commands_dir` but left this dataclass name. Cosmetic.
+- **The `project` keys are bound to `commands/global/` filenames.** Pattern layer can ship a contribution; only the global template defines available placeholders. Adding a pattern-only command (no global counterpart) would bypass the validation gate.
+- **Resolver-v1 ignores secondary patterns** with a warning. Whatever `forge create` produces, secondary patterns are decorative until composition support arrives.
 - **`conventions/global/<language>.md` is the global-language conventions layer.** Symmetric with `invariants/global.md` and the pattern/domain trees. Read at [resolver.py:188](../forge/resolver.py#L188).
 - **Manifest paths are normalized to absolute** at build time (`source_path.resolve()`, `project_root.resolve()`). All later path math is absolute.

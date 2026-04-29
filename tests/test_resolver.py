@@ -83,7 +83,7 @@ def _build_manifest(
     commands_dir: str = ".claude/commands/",
     invariants_dir: str = "docs/invariants/",
     conventions_dir: str = "docs/conventions/",
-    customizations: dict | None = None,
+    project_layer: dict | None = None,
 ) -> Manifest:
     payload = {
         "schema_version": 1,
@@ -104,8 +104,8 @@ def _build_manifest(
         payload["language"] = language
         if language == "python":
             payload["python_version"] = "3.12"
-    if customizations is not None:
-        payload["customizations"] = customizations
+    if project_layer is not None:
+        payload["project"] = project_layer
     (project_root / ".forge").mkdir(parents=True, exist_ok=True)
     manifest_path = project_root / ".forge" / "manifest.yaml"
     manifest_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
@@ -125,11 +125,11 @@ def _build_manifest(
 
 
 def _authored_probes(manifest: Manifest, command_name: str) -> list[tuple[str, str, str]]:
-    """Iterate manifest.customizations for a command and return (kind, name, probe)
+    """Iterate manifest.project for a command and return (kind, name, probe)
     tuples for each declared slot/insert. The probe is the first non-blank line
     of the body as authored — if the composed command is missing the probe,
     content was lost during composition."""
-    custom = manifest.customizations.get(command_name)
+    custom = manifest.project.get(command_name)
     if custom is None:
         return []
     out: list[tuple[str, str, str]] = []
@@ -203,7 +203,7 @@ def test_sample_project_resolves_cleanly():
             )
 
         template = (global_dir / f"{name}.md").read_text(encoding="utf-8")
-        custom = manifest.customizations.get(name)
+        custom = manifest.project.get(name)
         contrib_slots: dict[str, str] = {}
         if custom is not None:
             for slot_name, value in custom.slots.items():
@@ -249,7 +249,7 @@ def test_full_stack_global_pattern_project(tmp_path: Path):
     )
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"inserts": {"bullets": "- project bullet\n"}}},
+        project_layer={"tinyskill": {"inserts": {"bullets": "- project bullet\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -271,7 +271,7 @@ def test_slot_precedence_project_over_pattern_over_default(tmp_path: Path):
     )
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"slots": {"X": "project-value"}}},
+        project_layer={"tinyskill": {"slots": {"X": "project-value"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -314,7 +314,7 @@ def test_insert_ordering_pattern_then_project(tmp_path: Path):
     )
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"inserts": {"items": "Q1\n"}}},
+        project_layer={"tinyskill": {"inserts": {"items": "Q1\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -373,7 +373,7 @@ def test_empty_slot_body_falls_through_to_pattern(tmp_path: Path):
     )
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"slots": {"X": "\n"}}},
+        project_layer={"tinyskill": {"slots": {"X": "\n"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -662,7 +662,7 @@ def test_crlf_line_endings_do_not_break_boundary_detection(tmp_path: Path):
 
 def test_authored_probes_reads_from_manifest(tmp_path: Path):
     """The dogfood oracle (`_authored_probes`) must iterate
-    manifest.customizations, not <commands_dir>/<name>.custom.md. Without this,
+    manifest.project, not <commands_dir>/<name>.custom.md. Without this,
     the helper would return [] for every skill after the .custom.md migration
     and the body-presence check would silently pass vacuously."""
     baseline = tmp_path / "baseline"
@@ -670,7 +670,7 @@ def test_authored_probes_reads_from_manifest(tmp_path: Path):
     _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
     manifest_path = _build_manifest(
         project,
-        customizations={
+        project_layer={
             "tinyskill": {
                 "slots": {"X": "real_slot_value"},
                 "inserts": {"items": "first authored line\nsecond line\n"},
@@ -704,7 +704,7 @@ def test_paragraph_embedded_slot_strips_trailing_newline(tmp_path: Path):
     _build_baseline(baseline, command_template=template)
     manifest_path = _build_manifest(
         project,
-        customizations={
+        project_layer={
             "tinyskill": {
                 "slots": {
                     "EMBEDDED": "embedded-value",
@@ -751,7 +751,7 @@ def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
     _build_baseline(baseline, command_template=template)
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"slots": {"EMBEDDED": "eof-value"}}},
+        project_layer={"tinyskill": {"slots": {"EMBEDDED": "eof-value"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -760,15 +760,15 @@ def test_paragraph_embedded_slot_at_eof(tmp_path: Path):
     assert "eof-value\n." not in command
 
 
-def test_unknown_placeholder_in_manifest_customization_errors(tmp_path: Path):
-    """An unknown slot name in customizations raises ResolverError citing the
+def test_unknown_placeholder_in_project_layer_errors(tmp_path: Path):
+    """An unknown slot name in the project layer raises ResolverError citing the
     manifest path as the locator (not a synthetic locator)."""
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
     _build_baseline(baseline, command_template="# T\n\n{{X=ok}}\n")
     manifest_path = _build_manifest(
         project,
-        customizations={"tinyskill": {"slots": {"NOT_A_SLOT": "v"}}},
+        project_layer={"tinyskill": {"slots": {"NOT_A_SLOT": "v"}}},
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     with pytest.raises(ResolverError, match="unknown placeholder 'NOT_A_SLOT'") as exc:
@@ -776,7 +776,7 @@ def test_unknown_placeholder_in_manifest_customization_errors(tmp_path: Path):
     assert str(manifest.source_path) in str(exc.value)
 
 
-def test_resolver_reads_customizations_from_manifest(tmp_path: Path):
+def test_resolver_reads_project_layer_from_manifest(tmp_path: Path):
     """End-to-end: project-layer slot fills and insert bodies sourced from the
     manifest appear in the composed output, with no .custom.md file present."""
     baseline = tmp_path / "baseline"
@@ -787,7 +787,7 @@ def test_resolver_reads_customizations_from_manifest(tmp_path: Path):
     )
     manifest_path = _build_manifest(
         project,
-        customizations={
+        project_layer={
             "tinyskill": {
                 "slots": {"X": "manifest-x"},
                 "inserts": {"bullets": "- from manifest\n"},

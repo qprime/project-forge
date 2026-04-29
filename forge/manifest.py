@@ -74,7 +74,7 @@ class Resolution:
 
 
 @dataclass(frozen=True)
-class SkillCustomization:
+class ProjectLayer:
     slots: Mapping[str, str]
     inserts: Mapping[str, str]
 
@@ -91,7 +91,7 @@ class Manifest:
     axes: Axes
     project_context: ProjectContext
     resolution: Resolution
-    customizations: Mapping[str, SkillCustomization]
+    project: Mapping[str, ProjectLayer]
     source_path: Path
     project_root: Path
 
@@ -224,18 +224,18 @@ def _validate_semantics(raw: dict, *, baseline_root: Path, project_root: Path) -
     for key in ("commands_dir", "invariants_dir", "conventions_dir"):
         _validate_relative_path(raw["resolution"][key], label=f"resolution.{key}")
 
-    customizations = raw.get("customizations") or {}
-    if customizations:
+    project_layer = raw.get("project") or {}
+    if project_layer:
         global_commands_dir = baseline_root / "commands" / "global"
         valid_commands = (
             {p.stem for p in global_commands_dir.glob("*.md") if "." not in p.stem}
             if global_commands_dir.is_dir()
             else set()
         )
-        for command_name in customizations:
+        for command_name in project_layer:
             if command_name not in valid_commands:
                 raise ManifestError(
-                    f"unknown command in customizations: {command_name!r}; "
+                    f"unknown command in project layer: {command_name!r}; "
                     f"valid: {sorted(valid_commands)}"
                 )
 
@@ -300,8 +300,8 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         invariants_dir=res["invariants_dir"],
         conventions_dir=res["conventions_dir"],
     )
-    customizations: dict[str, SkillCustomization] = {}
-    for skill_name, body in (raw.get("customizations") or {}).items():
+    project_layer: dict[str, ProjectLayer] = {}
+    for command_name, body in (raw.get("project") or {}).items():
         slots = {
             k: norm
             for k, v in (body.get("slots") or {}).items()
@@ -312,11 +312,11 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
             for k, v in (body.get("inserts") or {}).items()
             if (norm := _normalize_block(v)) != ""
         }
-        customizations[skill_name] = SkillCustomization(
+        project_layer[command_name] = ProjectLayer(
             slots=MappingProxyType(slots),
             inserts=MappingProxyType(inserts),
         )
-    customizations_view = MappingProxyType(customizations)
+    project_view = MappingProxyType(project_layer)
     return Manifest(
         schema_version=raw["schema_version"],
         primary_pattern=raw["patterns"]["primary"],
@@ -328,7 +328,7 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         axes=axes,
         project_context=project_context,
         resolution=resolution,
-        customizations=customizations_view,
+        project=project_view,
         source_path=source_path.resolve(),
         project_root=project_root.resolve(),
     )

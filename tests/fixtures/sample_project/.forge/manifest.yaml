@@ -33,7 +33,7 @@ resolution:
   invariants_dir: docs/invariants/
   conventions_dir: docs/conventions/
 
-customizations:
+project:
   architect:
     slots:
       PERSONA_DOMAIN: synthetic compiler design

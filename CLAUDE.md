@@ -49,7 +49,7 @@ Implementation today: commands flow through update end-to-end. Invariants and co
 | Path | Purpose |
 |---|---|
 | `forge/` | Resolver + update CLI (the live pipeline) |
-| `commands/global/`, `commands/pattern/`, `commands/custom/` | Command templates, pattern contributions, and per-command authoring prompts |
+| `commands/global/`, `commands/pattern/`, `commands/project/` | Command templates, pattern contributions, and per-command project-layer authoring prompts |
 | `invariants/global.md`, `invariants/pattern/`, `invariants/domain/` | Layered invariants composed by the resolver |
 | `conventions/global/`, `conventions/pattern/`, `conventions/domain/` | Layered conventions composed by the resolver |
 | `registry/projects.yaml` | Project manifest — single source of truth (FG-1) |

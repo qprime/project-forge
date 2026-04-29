@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # spec — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `spec` skill. The output is a YAML fragment that fills named placeholders in `commands/global/spec.md` via the project manifest's `customizations` block.
+Run during create (or update) to produce project-specific content for the `spec` skill. The output is a YAML fragment that fills named placeholders in `commands/global/spec.md` via the project manifest's `project` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `sp
 
 ## Output
 
-A YAML fragment to merge under `customizations.spec:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
+A YAML fragment to merge under `project.spec:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -63,7 +63,7 @@ Omit if none apply.
 
 ## Output shape
 
-A YAML fragment for `customizations.spec:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies.
+A YAML fragment for `project.spec:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies.
 
 ```yaml
 spec:
@@ -81,4 +81,4 @@ spec:
       <bullets>
 ```
 
-Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `spec:` from `customizations`.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `spec:` from `project`.

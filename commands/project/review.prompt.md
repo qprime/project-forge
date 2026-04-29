@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # review — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `review` skill. The output is a YAML fragment that fills named placeholders in `commands/global/review.md` via the project manifest's `customizations` block.
+Run during create (or update) to produce project-specific content for the `review` skill. The output is a YAML fragment that fills named placeholders in `commands/global/review.md` via the project manifest's `project` block.
 
 ---
 
@@ -20,7 +20,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `re
 
 ## Output
 
-A YAML fragment to merge under `customizations.review:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
+A YAML fragment to merge under `project.review:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -89,7 +89,7 @@ Omit if the project has no issue tracker.
 
 ## Output shape
 
-A YAML fragment for `customizations.review:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
+A YAML fragment for `project.review:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
 ```yaml
 review:
@@ -108,4 +108,4 @@ review:
       <section>
 ```
 
-Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `review:` from `customizations`.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `review:` from `project`.

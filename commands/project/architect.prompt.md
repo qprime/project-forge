@@ -6,20 +6,20 @@ kind: authoring-prompt
 
 # architect — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `architect` skill. The output is a YAML fragment that fills named placeholders in `commands/global/architect.md` via the project manifest's `customizations` block.
+Run during create (or update) to produce project-specific content for the `architect` skill. The output is a YAML fragment that fills named placeholders in `commands/global/architect.md` via the project manifest's `project` block.
 
 ---
 
 ## Inputs
 
-- The target project's spec / guidance document (design doc, README, CLAUDE.md draft, or whatever it offered at bootstrap).
+- The target project's spec / guidance document (design doc, README, CLAUDE.md draft, or whatever it offered at create-time).
 - The project's declared pattern(s).
 - The global template at `commands/global/architect.md` — read it to see exact placeholders and surrounding prose.
 - Any pattern contributions that apply (`commands/pattern/<pattern>/architect.md`) — read them so you don't duplicate.
 
 ## Output
 
-A YAML fragment to merge under `customizations.architect:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Omit any placeholder you can't fill well — an empty placeholder is better than a generic one.
+A YAML fragment to merge under `project.architect:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Omit any placeholder you can't fill well — an empty placeholder is better than a generic one.
 
 Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution, not here.
 
@@ -80,7 +80,7 @@ Omit if the project is small enough that naming paths adds noise. Don't duplicat
 
 ## Output shape
 
-A YAML fragment for `customizations.architect:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
+A YAML fragment for `project.architect:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
 ```yaml
 architect:
@@ -96,4 +96,4 @@ architect:
       <prose>
 ```
 
-Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `architect:` from `customizations`.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `architect:` from `project`.

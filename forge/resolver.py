@@ -76,12 +76,12 @@ def _compose_commands(
 
 
 def _project_contribution(manifest: Manifest, command_name: str) -> _Contribution:
-    custom = manifest.customizations.get(command_name)
-    if custom is None:
+    layer = manifest.project.get(command_name)
+    if layer is None:
         return _Contribution(slots={}, inserts={}, source=manifest.source_path)
     return _Contribution(
-        slots=dict(custom.slots),
-        inserts=dict(custom.inserts),
+        slots=dict(layer.slots),
+        inserts=dict(layer.inserts),
         source=manifest.source_path,
     )
 

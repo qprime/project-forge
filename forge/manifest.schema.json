@@ -105,7 +105,7 @@
         "conventions_dir": {"type": "string", "minLength": 1}
       }
     },
-    "customizations": {
+    "project": {
       "type": "object",
       "additionalProperties": {
         "type": "object",

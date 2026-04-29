@@ -372,7 +372,7 @@ def test_toolchain_omitted_normalizes(baseline_root, project_tree):
 
 
 # ---------------------------------------------------------------------------
-# customizations
+# project layer
 # ---------------------------------------------------------------------------
 
 
@@ -387,21 +387,21 @@ def baseline_with_global_commands(baseline_root: Path) -> Path:
     return baseline_root
 
 
-def test_customizations_optional(baseline_with_global_commands, project_tree):
-    """A manifest without `customizations` loads cleanly; the field is an
+def test_project_layer_optional(baseline_with_global_commands, project_tree):
+    """A manifest without `project` loads cleanly; the field is an
     empty dict on the resulting Manifest."""
     payload = {**VALID_MINIMAL}
     path = write_manifest(project_tree, payload)
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
-    assert m.customizations == {}
+    assert m.project == {}
 
 
-def test_customizations_loads_slots_and_inserts(
+def test_project_layer_loads_slots_and_inserts(
     baseline_with_global_commands, project_tree
 ):
     payload = {
         **VALID_MINIMAL,
-        "customizations": {
+        "project": {
             "mini": {
                 "slots": {"X": "from-project"},
                 "inserts": {"items": "- one\n- two\n"},
@@ -410,38 +410,38 @@ def test_customizations_loads_slots_and_inserts(
     }
     path = write_manifest(project_tree, payload)
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
-    assert "mini" in m.customizations
-    assert m.customizations["mini"].slots == {"X": "from-project\n"}
-    assert m.customizations["mini"].inserts == {"items": "- one\n- two\n"}
+    assert "mini" in m.project
+    assert m.project["mini"].slots == {"X": "from-project\n"}
+    assert m.project["mini"].inserts == {"items": "- one\n- two\n"}
 
 
-def test_customizations_unknown_skill_key_rejected(
+def test_project_layer_unknown_skill_key_rejected(
     baseline_with_global_commands, project_tree
 ):
     """A typo in a skill name fails _validate_semantics — not the schema."""
     payload = {
         **VALID_MINIMAL,
-        "customizations": {"mni": {"slots": {"X": "v"}}},
+        "project": {"mni": {"slots": {"X": "v"}}},
     }
     path = write_manifest(project_tree, payload)
-    with pytest.raises(ManifestError, match="unknown command in customizations: 'mni'"):
+    with pytest.raises(ManifestError, match="unknown command in project layer: 'mni'"):
         load_manifest(path, baseline_root=baseline_with_global_commands)
 
 
-def test_customizations_unknown_subkey_rejected(
+def test_project_layer_unknown_subkey_rejected(
     baseline_with_global_commands, project_tree
 ):
     """`additionalProperties: false` enforced at the slots/inserts structural level."""
     payload = {
         **VALID_MINIMAL,
-        "customizations": {"mini": {"not_a_field": {"X": "v"}}},
+        "project": {"mini": {"not_a_field": {"X": "v"}}},
     }
     path = write_manifest(project_tree, payload)
     with pytest.raises(ManifestError):
         load_manifest(path, baseline_root=baseline_with_global_commands)
 
 
-def test_customizations_normalizes_trailing_newline(
+def test_project_layer_normalizes_trailing_newline(
     baseline_with_global_commands, project_tree
 ):
     """YAML `|` block scalars and plain scalars both produce values with a
@@ -458,7 +458,7 @@ def test_customizations_normalizes_trailing_newline(
         "  commands_dir: .claude/commands/\n"
         "  invariants_dir: docs/invariants/\n"
         "  conventions_dir: docs/conventions/\n"
-        "customizations:\n"
+        "project:\n"
         "  mini:\n"
         "    slots:\n"
         "      X: plain-scalar\n"
@@ -470,38 +470,38 @@ def test_customizations_normalizes_trailing_newline(
     path = project_tree / ".forge" / "manifest.yaml"
     path.write_text(payload_yaml, encoding="utf-8")
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
-    assert m.customizations["mini"].slots["X"] == "plain-scalar\n"
-    assert m.customizations["mini"].inserts["items"] == "- a\n- b\n"
+    assert m.project["mini"].slots["X"] == "plain-scalar\n"
+    assert m.project["mini"].inserts["items"] == "- a\n- b\n"
 
 
-def test_customizations_are_immutable(
+def test_project_layer_are_immutable(
     baseline_with_global_commands, project_tree
 ):
-    """`SkillCustomization` is `frozen=True`, but the slot/insert mappings
+    """`ProjectLayer` is `frozen=True`, but the slot/insert mappings
     must also be immutable so the frozen claim is honest end-to-end. Without
-    this, `m.customizations[name].slots[key] = ...` succeeds silently."""
+    this, `m.project[name].slots[key] = ...` succeeds silently."""
     payload = {
         **VALID_MINIMAL,
-        "customizations": {"mini": {"slots": {"X": "v"}}},
+        "project": {"mini": {"slots": {"X": "v"}}},
     }
     path = write_manifest(project_tree, payload)
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
     with pytest.raises(TypeError):
-        m.customizations["mini"].slots["X"] = "tampered"  # type: ignore[index]
+        m.project["mini"].slots["X"] = "tampered"  # type: ignore[index]
     with pytest.raises(TypeError):
-        m.customizations["new"] = m.customizations["mini"]  # type: ignore[index]
+        m.project["new"] = m.project["mini"]  # type: ignore[index]
 
 
-def test_customizations_empty_body_filtered(
+def test_project_layer_empty_body_filtered(
     baseline_with_global_commands, project_tree
 ):
-    """An empty body in customizations is filtered at load time, mirroring the
+    """An empty body in the project layer is filtered at load time, mirroring the
     parser's `if body == "": continue` so empty falls through to the pattern
     layer at resolve time."""
     payload = {
         **VALID_MINIMAL,
-        "customizations": {"mini": {"slots": {"X": "\n"}}},
+        "project": {"mini": {"slots": {"X": "\n"}}},
     }
     path = write_manifest(project_tree, payload)
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
-    assert m.customizations["mini"].slots == {}
+    assert m.project["mini"].slots == {}

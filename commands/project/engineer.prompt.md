@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # engineer — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `engineer` skill. The output is a YAML fragment that fills named placeholders in `commands/global/engineer.md` via the project manifest's `customizations` block.
+Run during create (or update) to produce project-specific content for the `engineer` skill. The output is a YAML fragment that fills named placeholders in `commands/global/engineer.md` via the project manifest's `project` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `en
 
 ## Output
 
-A YAML fragment to merge under `customizations.engineer:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution.
+A YAML fragment to merge under `project.engineer:` in `<project>/.forge/manifest.yaml`. Include only keys with real content. Rule of thumb: if a cousin project on the same pattern would want the same text, it belongs in the pattern contribution.
 
 ---
 
@@ -75,7 +75,7 @@ How this project handles issue comments, PR protocol, or completion signaling. I
 
 ## Output shape
 
-A YAML fragment for `customizations.engineer:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
+A YAML fragment for `project.engineer:` in `<project>/.forge/manifest.yaml`. Use plain scalars for one-line slot values and `|` block scalars for multi-line insert bodies (markdown content survives verbatim, including embedded H2 headers and fenced code blocks).
 
 ```yaml
 engineer:
@@ -95,4 +95,4 @@ engineer:
       <block>
 ```
 
-Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `engineer:` from `customizations`.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `engineer:` from `project`.

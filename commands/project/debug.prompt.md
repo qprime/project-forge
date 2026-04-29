@@ -6,7 +6,7 @@ kind: authoring-prompt
 
 # debug — project-layer authoring prompt
 
-Run during bootstrap (or rebase) to produce project-specific content for the `debug` skill. The output is a YAML fragment that fills named placeholders in `commands/global/debug.md` via the project manifest's `customizations` block.
+Run during create (or update) to produce project-specific content for the `debug` skill. The output is a YAML fragment that fills named placeholders in `commands/global/debug.md` via the project manifest's `project` block.
 
 ---
 
@@ -19,7 +19,7 @@ Run during bootstrap (or rebase) to produce project-specific content for the `de
 
 ## Output
 
-A YAML fragment to merge under `customizations.debug:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
+A YAML fragment to merge under `project.debug:` in `<project>/.forge/manifest.yaml`. Include only keys with real content.
 
 ---
 
@@ -70,7 +70,7 @@ Omit if `docs/invariants/` covers everything.
 
 ## Output shape
 
-A YAML fragment for `customizations.debug:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies.
+A YAML fragment for `project.debug:` in `<project>/.forge/manifest.yaml`. Use `|` block scalars for multi-line insert bodies.
 
 ```yaml
 debug:
@@ -87,4 +87,4 @@ debug:
       <lines>
 ```
 
-Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `debug:` from `customizations`.
+Keys with no content are omitted entirely. If a skill has no project-layer content at all, omit `debug:` from `project`.

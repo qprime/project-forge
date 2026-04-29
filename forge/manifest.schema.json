@@ -121,6 +121,13 @@
           }
         }
       }
+    },
+    "project_invariants": {
+      "type": "string"
+    },
+    "project_conventions": {
+      "type": "object",
+      "additionalProperties": {"type": "string"}
     }
   }
 }

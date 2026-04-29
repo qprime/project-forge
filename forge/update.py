@@ -43,35 +43,48 @@ def plan_update(
     project_root = Path(project_root)
     resolved = resolve(manifest, baseline_root=baseline_root, project_root=project_root)
     commands_dir = project_root / manifest.resolution.commands_dir
+    invariants_dir = project_root / manifest.resolution.invariants_dir
+    conventions_dir = project_root / manifest.resolution.conventions_dir
     changes: list[FileChange] = []
     for name in sorted(resolved.commands):
         body = resolved.commands[name]
         target = commands_dir / f"{name}.md"
-        if target.is_file():
-            current = target.read_text(encoding="utf-8")
-            if current == body:
-                changes.append(FileChange(path=target, kind="unchanged", body=body, diff=""))
-                continue
-            diff = "".join(
-                difflib.unified_diff(
-                    current.splitlines(keepends=True),
-                    body.splitlines(keepends=True),
-                    fromfile=str(target),
-                    tofile=str(target),
-                )
-            )
-            changes.append(FileChange(path=target, kind="update", body=body, diff=diff))
-        else:
-            diff = "".join(
-                difflib.unified_diff(
-                    [],
-                    body.splitlines(keepends=True),
-                    fromfile="/dev/null",
-                    tofile=str(target),
-                )
-            )
-            changes.append(FileChange(path=target, kind="create", body=body, diff=diff))
+        changes.append(_build_change(target, body))
+    if resolved.invariants:
+        target = invariants_dir / "global.md"
+        changes.append(_build_change(target, resolved.invariants))
+    for lang in sorted(resolved.conventions):
+        body = resolved.conventions[lang]
+        if not body:
+            continue
+        target = conventions_dir / f"{lang}.md"
+        changes.append(_build_change(target, body))
     return UpdatePlan(changes=tuple(changes))
+
+
+def _build_change(target: Path, body: str) -> FileChange:
+    if target.is_file():
+        current = target.read_text(encoding="utf-8")
+        if current == body:
+            return FileChange(path=target, kind="unchanged", body=body, diff="")
+        diff = "".join(
+            difflib.unified_diff(
+                current.splitlines(keepends=True),
+                body.splitlines(keepends=True),
+                fromfile=str(target),
+                tofile=str(target),
+            )
+        )
+        return FileChange(path=target, kind="update", body=body, diff=diff)
+    diff = "".join(
+        difflib.unified_diff(
+            [],
+            body.splitlines(keepends=True),
+            fromfile="/dev/null",
+            tofile=str(target),
+        )
+    )
+    return FileChange(path=target, kind="create", body=body, diff=diff)
 
 
 def apply_update(plan: UpdatePlan) -> None:

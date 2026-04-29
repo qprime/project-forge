@@ -50,8 +50,8 @@ def resolve(
         )
 
     commands = _compose_commands(manifest, baseline_root, project_root)
-    invariants = _compose_invariants(manifest, baseline_root, project_root)
-    conventions = _compose_conventions(manifest, baseline_root, project_root)
+    invariants = _compose_invariants(manifest, baseline_root)
+    conventions = _compose_conventions(manifest, baseline_root)
 
     return ResolvedProject(commands=commands, invariants=invariants, conventions=conventions)
 
@@ -143,9 +143,7 @@ def _compose_command(
     return filled
 
 
-def _compose_invariants(
-    manifest: Manifest, baseline_root: Path, project_root: Path
-) -> str:
+def _compose_invariants(manifest: Manifest, baseline_root: Path) -> str:
     layers: list[tuple[Path, str]] = []
     candidates = [
         baseline_root / "invariants" / "global.md",
@@ -153,11 +151,13 @@ def _compose_invariants(
     ]
     for domain in manifest.domains:
         candidates.append(baseline_root / "invariants" / "domain" / f"{domain}.md")
-    candidates.append(project_root / manifest.resolution.invariants_dir / "global.md")
 
     for path in candidates:
         if path.is_file():
             layers.append((path, _read_text(path)))
+
+    if manifest.project_invariants:
+        layers.append((manifest.source_path, manifest.project_invariants))
 
     if not layers:
         return ""
@@ -178,9 +178,7 @@ def _compose_invariants(
     return composed
 
 
-def _compose_conventions(
-    manifest: Manifest, baseline_root: Path, project_root: Path
-) -> dict[str, str]:
+def _compose_conventions(manifest: Manifest, baseline_root: Path) -> dict[str, str]:
     language = manifest.language
     if language is None:
         return {}
@@ -192,9 +190,11 @@ def _compose_conventions(
         candidates.append(
             baseline_root / "conventions" / "domain" / domain / f"{language}.md"
         )
-    candidates.append(project_root / manifest.resolution.conventions_dir / f"{language}.md")
 
     layers = [_read_text(p) for p in candidates if p.is_file()]
+    project_layer = manifest.project_conventions.get(language)
+    if project_layer:
+        layers.append(project_layer)
     if not layers:
         return {language: ""}
     composed = "\n\n".join(t.rstrip() for t in layers) + "\n"

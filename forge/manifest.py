@@ -92,6 +92,8 @@ class Manifest:
     project_context: ProjectContext
     resolution: Resolution
     project: Mapping[str, ProjectLayer]
+    project_invariants: str | None
+    project_conventions: Mapping[str, str]
     source_path: Path
     project_root: Path
 
@@ -317,6 +319,17 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
             inserts=MappingProxyType(inserts),
         )
     project_view = MappingProxyType(project_layer)
+    project_invariants_raw = raw.get("project_invariants")
+    if project_invariants_raw is None:
+        project_invariants: str | None = None
+    else:
+        normalized = _normalize_block(project_invariants_raw)
+        project_invariants = normalized if normalized != "" else None
+    project_conventions: dict[str, str] = {}
+    for lang, body in (raw.get("project_conventions") or {}).items():
+        normalized = _normalize_block(body)
+        if normalized != "":
+            project_conventions[lang] = normalized
     return Manifest(
         schema_version=raw["schema_version"],
         primary_pattern=raw["patterns"]["primary"],
@@ -329,6 +342,8 @@ def _build_manifest(raw: dict, *, source_path: Path, project_root: Path) -> Mani
         project_context=project_context,
         resolution=resolution,
         project=project_view,
+        project_invariants=project_invariants,
+        project_conventions=MappingProxyType(project_conventions),
         source_path=source_path.resolve(),
         project_root=project_root.resolve(),
     )

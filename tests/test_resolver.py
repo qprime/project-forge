@@ -84,6 +84,8 @@ def _build_manifest(
     invariants_dir: str = "docs/invariants/",
     conventions_dir: str = "docs/conventions/",
     project_layer: dict | None = None,
+    project_invariants: str | None = None,
+    project_conventions: dict[str, str] | None = None,
 ) -> Manifest:
     payload = {
         "schema_version": 1,
@@ -106,6 +108,10 @@ def _build_manifest(
             payload["python_version"] = "3.12"
     if project_layer is not None:
         payload["project"] = project_layer
+    if project_invariants is not None:
+        payload["project_invariants"] = project_invariants
+    if project_conventions is not None:
+        payload["project_conventions"] = project_conventions
     (project_root / ".forge").mkdir(parents=True, exist_ok=True)
     manifest_path = project_root / ".forge" / "manifest.yaml"
     manifest_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
@@ -389,10 +395,10 @@ def test_invariants_compose_global_pattern_domain_project(tmp_path: Path):
         invariants_pattern="## CP-1 — Pattern\n\npattern rule\n",
         invariants_domain={"cad-cam": "## DM-1 — Domain\n\ndomain rule\n"},
     )
-    manifest_path = _build_manifest(project, domains=("cad-cam",))
-    _write(
-        project / "docs" / "invariants" / "global.md",
-        "## PR-1 — Project\n\nproject rule\n",
+    manifest_path = _build_manifest(
+        project,
+        domains=("cad-cam",),
+        project_invariants="## PR-1 — Project\n\nproject rule\n",
     )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
@@ -418,6 +424,74 @@ def test_invariant_id_collision_errors(tmp_path: Path):
         resolve(manifest, baseline_root=baseline, project_root=project)
 
 
+def test_invariant_id_collision_against_manifest_source(tmp_path: Path):
+    """Collision between baseline and manifest.project_invariants must cite the
+    manifest source path, not a synthetic file path."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(
+        baseline,
+        invariants_global="## GL-1 — Foo\n\nrule\n",
+    )
+    manifest_path = _build_manifest(
+        project,
+        project_invariants="## GL-1 — Manifest\n\nproject rule\n",
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    with pytest.raises(ResolverError, match="invariant ID 'GL-1' duplicated") as exc:
+        resolve(manifest, baseline_root=baseline, project_root=project)
+    assert str(manifest.source_path) in str(exc.value)
+
+
+def test_resolver_ignores_project_tree_invariants_file(tmp_path: Path):
+    """Source/destination disjointness: a stale `<invariants_dir>/global.md` on
+    disk in the project tree must not contribute to project-layer invariants.
+    Only `manifest.project_invariants` does."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(
+        baseline,
+        invariants_global="## GL-1 — Foo\n\nbaseline rule\n",
+    )
+    manifest_path = _build_manifest(
+        project,
+        project_invariants="## PR-1 — From Manifest\n\nmanifest rule\n",
+    )
+    # Pre-existing file in destination dir with conflicting content must be ignored.
+    _write(
+        project / "docs" / "invariants" / "global.md",
+        "## PR-1 — From File\n\nstale file rule\n",
+    )
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    body = out.invariants
+    assert "From Manifest" in body
+    assert "manifest rule" in body
+    assert "From File" not in body
+    assert "stale file rule" not in body
+
+
+def test_resolver_ignores_project_tree_conventions_file(tmp_path: Path):
+    """Source/destination disjointness: a stale `<conventions_dir>/<lang>.md` on
+    disk must not contribute. Only `manifest.project_conventions[<lang>]` does."""
+    baseline = tmp_path / "baseline"
+    project = tmp_path / "proj"
+    _build_baseline(
+        baseline,
+        conventions_global="# global\n",
+    )
+    manifest_path = _build_manifest(
+        project,
+        project_conventions={"python": "# from manifest\n"},
+    )
+    _write(project / "docs" / "conventions" / "python.md", "# from file\n")
+    manifest = load_manifest(manifest_path, baseline_root=baseline)
+    out = resolve(manifest, baseline_root=baseline, project_root=project)
+    body = out.conventions["python"]
+    assert "from manifest" in body
+    assert "from file" not in body
+
+
 def test_conventions_concatenation(tmp_path: Path):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
@@ -427,8 +501,11 @@ def test_conventions_concatenation(tmp_path: Path):
         conventions_pattern={"python": "# pattern python\n"},
         conventions_domain={"cad-cam": {"python": "# domain cad-cam python\n"}},
     )
-    manifest_path = _build_manifest(project, domains=("cad-cam",))
-    _write(project / "docs" / "conventions" / "python.md", "# project python\n")
+    manifest_path = _build_manifest(
+        project,
+        domains=("cad-cam",),
+        project_conventions={"python": "# project python\n"},
+    )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     out = resolve(manifest, baseline_root=baseline, project_root=project)
     body = out.conventions["python"]

@@ -65,3 +65,18 @@ project:
         When debugging issues in this fixture, check:
         - **Layer attribution** — is the bug in parsing/AST, IR transformation, or codegen?
         - **Generator purity** — does the same input produce the same output across calls?
+
+project_invariants: |
+  ## SP-1 — Synthetic-compiler-fixture invariant
+
+  Fixture-defined invariant exercised by the round-trip test. Real synthetic-compiler projects would author rules specific to their AST/IR/codegen contracts here.
+
+  **Failure mode:** without a project-layer invariant in the fixture, the resolver's project-invariant code path has no live coverage in the canonical end-to-end test.
+  **Type:** code-side
+
+project_conventions:
+  python: |
+    # Synthetic-Compiler Conventions
+
+    Project-specific Python conventions for this fixture. Real projects would
+    document AST construction, IR transformation, and codegen rules here.

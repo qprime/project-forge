@@ -505,3 +505,100 @@ def test_project_layer_empty_body_filtered(
     path = write_manifest(project_tree, payload)
     m = load_manifest(path, baseline_root=baseline_with_global_commands)
     assert m.project["mini"].slots == {}
+
+
+# ---------------------------------------------------------------------------
+# project_invariants / project_conventions
+# ---------------------------------------------------------------------------
+
+
+def test_project_invariants_optional(baseline_root, project_tree):
+    payload = {**VALID_MINIMAL}
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert m.project_invariants is None
+    assert m.project_conventions == {}
+
+
+def test_project_invariants_string_loads(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_invariants": "## PR-1 — Project\n\nrule body\n",
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert m.project_invariants == "## PR-1 — Project\n\nrule body\n"
+
+
+def test_project_invariants_non_string_rejected(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_invariants": {"unexpected": "mapping"},
+    }
+    path = write_manifest(project_tree, payload)
+    with pytest.raises(ManifestError):
+        load_manifest(path, baseline_root=baseline_root)
+
+
+def test_project_invariants_empty_normalizes_to_none(baseline_root, project_tree):
+    payload = {**VALID_MINIMAL, "project_invariants": "\n   \n"}
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert m.project_invariants is None
+
+
+def test_project_conventions_string_map_loads(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_conventions": {"python": "# Project Python\n\nbody\n"},
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert m.project_conventions == {"python": "# Project Python\n\nbody\n"}
+
+
+def test_project_conventions_non_string_value_rejected(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_conventions": {"python": {"nested": "object"}},
+    }
+    path = write_manifest(project_tree, payload)
+    with pytest.raises(ManifestError):
+        load_manifest(path, baseline_root=baseline_root)
+
+
+def test_project_conventions_extra_language_keys_accepted(baseline_root, project_tree):
+    """A `rust` key in a manifest with `language: python` is the user staging
+    future content, not a misconfiguration. Composition only emits output for
+    the active language; other keys no-op."""
+    payload = {
+        **VALID_MINIMAL,
+        "project_conventions": {
+            "python": "# Python body\n",
+            "rust": "# Rust body\n",
+        },
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert set(m.project_conventions) == {"python", "rust"}
+
+
+def test_project_conventions_empty_body_filtered(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_conventions": {"python": "\n   \n"},
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    assert m.project_conventions == {}
+
+
+def test_project_conventions_immutable(baseline_root, project_tree):
+    payload = {
+        **VALID_MINIMAL,
+        "project_conventions": {"python": "# body\n"},
+    }
+    path = write_manifest(project_tree, payload)
+    m = load_manifest(path, baseline_root=baseline_root)
+    with pytest.raises(TypeError):
+        m.project_conventions["python"] = "tampered"  # type: ignore[index]

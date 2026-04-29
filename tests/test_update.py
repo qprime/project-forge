@@ -42,6 +42,8 @@ def _build_baseline(
     command_template: str = "# Tinyskill\n\nValue: {{X=ok}}\n",
     pattern: str = "tiny",
     pattern_command: str | None = None,
+    invariants_global: str | None = "## GL-1 — Foo\n\nrule\n",
+    conventions_global: str | None = "# global\n",
 ) -> Path:
     _write(root / "commands" / "global" / "tinyskill.md", command_template)
     (root / "commands" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
@@ -49,8 +51,10 @@ def _build_baseline(
         _write(root / "commands" / "pattern" / pattern / "tinyskill.md", pattern_command)
     (root / "conventions" / "domain").mkdir(parents=True, exist_ok=True)
     (root / "conventions" / "pattern" / pattern).mkdir(parents=True, exist_ok=True)
-    _write(root / "invariants" / "global.md", "## GL-1 — Foo\n\nrule\n")
-    _write(root / "conventions" / "global" / "python.md", "# global\n")
+    if invariants_global is not None:
+        _write(root / "invariants" / "global.md", invariants_global)
+    if conventions_global is not None:
+        _write(root / "conventions" / "global" / "python.md", conventions_global)
     return root
 
 
@@ -59,6 +63,8 @@ def _build_manifest_file(
     *,
     primary: str = "tiny",
     commands_dir: str = ".claude/commands/",
+    project_invariants: str | None = None,
+    project_conventions: dict[str, str] | None = None,
 ) -> Path:
     payload = {
         "schema_version": 1,
@@ -74,17 +80,31 @@ def _build_manifest_file(
             "conventions_dir": "docs/conventions/",
         },
     }
+    if project_invariants is not None:
+        payload["project_invariants"] = project_invariants
+    if project_conventions is not None:
+        payload["project_conventions"] = project_conventions
     (project_root / ".forge").mkdir(parents=True, exist_ok=True)
     manifest_path = project_root / ".forge" / "manifest.yaml"
     manifest_path.write_text(yaml.safe_dump(payload), encoding="utf-8")
     return manifest_path
 
 
-def _setup(tmp_path: Path, **baseline_kwargs):
+def _setup(
+    tmp_path: Path,
+    *,
+    project_invariants: str | None = None,
+    project_conventions: dict[str, str] | None = None,
+    **baseline_kwargs,
+):
     baseline = tmp_path / "baseline"
     project = tmp_path / "proj"
     _build_baseline(baseline, **baseline_kwargs)
-    manifest_path = _build_manifest_file(project)
+    manifest_path = _build_manifest_file(
+        project,
+        project_invariants=project_invariants,
+        project_conventions=project_conventions,
+    )
     manifest = load_manifest(manifest_path, baseline_root=baseline)
     return baseline, project, manifest
 
@@ -97,14 +117,19 @@ def _setup(tmp_path: Path, **baseline_kwargs):
 class TestPlanUpdate:
     def test_unchanged_when_disk_matches(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
-        composed = resolve(manifest, baseline_root=baseline, project_root=project).commands["tinyskill"]
+        resolved = resolve(manifest, baseline_root=baseline, project_root=project)
         target = project / ".claude" / "commands" / "tinyskill.md"
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(composed, encoding="utf-8")
+        target.write_text(resolved.commands["tinyskill"], encoding="utf-8")
+        invariants_target = project / "docs" / "invariants" / "global.md"
+        invariants_target.parent.mkdir(parents=True, exist_ok=True)
+        invariants_target.write_text(resolved.invariants, encoding="utf-8")
+        conventions_target = project / "docs" / "conventions" / "python.md"
+        conventions_target.parent.mkdir(parents=True, exist_ok=True)
+        conventions_target.write_text(resolved.conventions["python"], encoding="utf-8")
         plan = plan_update(manifest, baseline_root=baseline, project_root=project)
-        assert len(plan.changes) == 1
-        assert plan.changes[0].kind == "unchanged"
-        assert plan.changes[0].diff == ""
+        assert all(c.kind == "unchanged" for c in plan.changes)
+        assert all(c.diff == "" for c in plan.changes)
         assert plan.has_drift is False
 
     def test_update_when_disk_differs(self, tmp_path: Path):
@@ -131,8 +156,12 @@ class TestPlanUpdate:
         (commands_dir / "bootstrap.md").write_text("forge command\n", encoding="utf-8")
         (commands_dir / "survey.md").write_text("forge command\n", encoding="utf-8")
         plan = plan_update(manifest, baseline_root=baseline, project_root=project)
-        targets = {c.path.name for c in plan.changes}
-        assert targets == {"tinyskill.md"}
+        names = {c.path.name for c in plan.changes}
+        # Plan covers commands, invariants, and conventions; non-resolver files
+        # ("bootstrap.md", "survey.md") never appear.
+        assert "bootstrap.md" not in names
+        assert "survey.md" not in names
+        assert "tinyskill.md" in names
 
     def test_prompt_files_never_targeted(self, tmp_path: Path):
         baseline, project, manifest = _setup(tmp_path)
@@ -150,6 +179,40 @@ class TestPlanUpdate:
         )
         with pytest.raises(ResolverError):
             plan_update(manifest, baseline_root=baseline, project_root=project)
+
+    def test_invariants_create_when_present_and_missing(self, tmp_path: Path):
+        baseline, project, manifest = _setup(
+            tmp_path,
+            project_invariants="## PR-1 — Project\n\nrule\n",
+        )
+        plan = plan_update(manifest, baseline_root=baseline, project_root=project)
+        invariants_target = project / "docs" / "invariants" / "global.md"
+        invariants_changes = [c for c in plan.changes if c.path == invariants_target]
+        assert len(invariants_changes) == 1
+        assert invariants_changes[0].kind == "create"
+        assert "PR-1 — Project" in invariants_changes[0].body
+
+    def test_invariants_skipped_when_composed_body_empty(self, tmp_path: Path):
+        baseline, project, manifest = _setup(
+            tmp_path,
+            invariants_global=None,
+        )
+        plan = plan_update(manifest, baseline_root=baseline, project_root=project)
+        invariants_target = project / "docs" / "invariants" / "global.md"
+        invariants_changes = [c for c in plan.changes if c.path == invariants_target]
+        assert invariants_changes == []
+
+    def test_conventions_one_entry_per_language(self, tmp_path: Path):
+        baseline, project, manifest = _setup(
+            tmp_path,
+            project_conventions={"python": "# project python\n"},
+        )
+        plan = plan_update(manifest, baseline_root=baseline, project_root=project)
+        conventions_target = project / "docs" / "conventions" / "python.md"
+        conventions_changes = [c for c in plan.changes if c.path == conventions_target]
+        assert len(conventions_changes) == 1
+        assert conventions_changes[0].kind == "create"
+        assert "project python" in conventions_changes[0].body
 
 
 # ---------------------------------------------------------------------------
@@ -234,11 +297,25 @@ class TestSampleProjectUpdate:
         expected_commands = {
             f.stem for f in (REPO_ROOT / "commands" / "global").glob("*.md") if "." not in f.stem
         }
-        targets = {c.path.stem for c in plan.changes}
-        assert targets == expected_commands
+        commands_dir = proj / proj_manifest.resolution.commands_dir
+        invariants_target = proj / proj_manifest.resolution.invariants_dir / "global.md"
+        conventions_target = proj / proj_manifest.resolution.conventions_dir / "python.md"
+        command_targets = {c.path.stem for c in plan.changes if c.path.parent == commands_dir}
+        plan_paths = {c.path for c in plan.changes}
+        assert command_targets == expected_commands
+        assert invariants_target in plan_paths
+        assert conventions_target in plan_paths
         assert all(c.kind == "create" for c in plan.changes)
 
         apply_update(plan)
+        assert invariants_target.is_file()
+        assert conventions_target.is_file()
+        invariants_body = invariants_target.read_text(encoding="utf-8")
+        assert "GL-1" in invariants_body  # baseline content
+        assert "SP-1 — Synthetic-compiler-fixture invariant" in invariants_body
+        conventions_body = conventions_target.read_text(encoding="utf-8")
+        assert "Synthetic-Compiler Conventions" in conventions_body
+
         plan2 = plan_update(proj_manifest, baseline_root=REPO_ROOT, project_root=proj)
         assert all(c.kind == "unchanged" for c in plan2.changes)
 

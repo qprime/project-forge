@@ -1,6 +1,8 @@
 # Claude Code Project Bootstrap Guide
 
-**Status:** Reference Document
+**Status:** Superseded — historical reference only.
+
+This document predates the current resolver-based bootstrap pipeline (see `refactor_notes.md`, `forge/resolver.py`). It describes a tag/capability mental model that the implemented `forge update` does not run, and lists baseline skills (e.g. `/audit`, `operator`) that no longer ship in `commands/global/` — `/audit` has split into `/architect` (design-time) and `/review` (artifact). For the actual baseline skill set, read `commands/global/` directly. This file will be reshaped or retired during refactor Step 4 (external-consumer bootstrap).
 
 A step-by-step process for bootstrapping a new Claude Code project with AI infrastructure — skills, invariants, hooks, and starter code. Derived from the mill_ui pattern, generalized for any project.
 

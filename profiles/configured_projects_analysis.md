@@ -23,12 +23,11 @@
 
 ## Skill Coverage vs Baseline
 
-The baseline defines 7 core skill templates: `/spec`, `/audit`, `/architect`, `/review`, `/engineer`, `/close-out`, `/debug`.
+The baseline defines 6 core skill templates: `/spec`, `/architect`, `/review`, `/engineer`, `/close-out`, `/debug`. Pre-split projects ship a standalone `/audit`; in the current baseline its work is folded into `/architect` (design-time concerns) and `/review` (artifact concerns).
 
 | Baseline Skill | mill_ui | homenet | TenneCNC | penumbra-poc |
 |----------------|---------|---------|----------|--------------|
 | /spec | Yes | Yes | — | Yes |
-| /audit | Yes (extended) | Yes (extended) | Yes (corpus) | Yes |
 | /architect | **MISSING** | **MISSING** | — | Yes |
 | /review | Yes | Yes | Yes (6 personas) | Yes |
 | /engineer | cam-engineer | Yes (infra) | — | Yes (ML) |
@@ -186,7 +185,7 @@ The baseline defines 7 core skill templates: `/spec`, `/audit`, `/architect`, `/
 | Post-edit lint hook | mill_ui, homenet, penumbra-poc | settings.json + lint-python.sh | Add to bootstrap Phase 5 as standard |
 | Regression traps in invariants | mill_ui, homenet | Explicit LLM failure modes documented | Add section to invariant templates |
 | Amendment process | mill_ui, homenet | 5-step protocol for changing invariants | Add to baseline invariant docs |
-| Change-aware audit | mill_ui, homenet | `last_audit_commit` tracking, deferred findings | Update `/audit` template |
+| Change-aware review | mill_ui, homenet | `last_audit_commit` tracking, deferred findings | Fold into `/review` template |
 
 ### Tier 2: Worth Generalizing (proven in 1 project, clearly reusable)
 
@@ -220,7 +219,7 @@ The baseline defines 7 core skill templates: `/spec`, `/audit`, `/architect`, `/
 
 2. **Add `baseline_version` to registry for homenet and penumbra-poc** — they're configured but the registry doesn't reflect it.
 
-3. **Pull Tier 1 patterns into baseline** — `/check-invariants` template, `/glossary` template, lint hook as standard, regression traps section, amendment process, change-aware audit.
+3. **Pull Tier 1 patterns into baseline** — `/check-invariants` template, `/glossary` template, lint hook as standard, regression traps section, amendment process, change-aware review.
 
 4. **Add TenneCNC hooks** — it's the only configured project without settings.json. Even for a doc corpus, a hook checking markdown link resolution or CONCEPT_COVERAGE sync could add value.
 

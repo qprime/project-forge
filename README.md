@@ -30,6 +30,10 @@ Each artifact type is composed from three layers:
 
 This is what makes the system creatable from prose. The LLM is not generating a whole project from scratch; it is *customizing* a known scaffold against a description. The scaffold carries everything project-independent.
 
+## Symmetry across artifact types
+
+Commands, invariants, and conventions all behave the same way: their project layer is authored in `.forge/manifest.yaml`, and the composed output is written to the project tree at the path the manifest declares. **Source path and destination path are always disjoint.** A second composition run reads the same manifest-resident project layer it read the first time — never its own previously-written output — so re-applying the baseline is idempotent by construction rather than by accident.
+
 ## Patterns
 
 A **pattern** is a reusable project shape (Compiler, KB, Bracketed-probabilistic, etc., per Garlan & Shaw / POSA, not GoF). A project declares its primary pattern in its manifest. The pattern selects which layer-2 content applies.

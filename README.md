@@ -2,19 +2,26 @@
 
 A system that creates and updates **hybrid runtime projects** — projects in which deterministic code, LLMs, and humans are co-resident actors. Forge takes a description (or an existing codebase) and produces a project; later, given that project's manifest, forge re-applies the baseline.
 
-Forge standardizes the *structure and content* of three artifact types — **commands**, **invariants**, **conventions** — across **three layers** — **global**, **pattern**, **project** — for a small set of project types.
+Forge handles two classes of artifact:
+
+- **Structural artifacts** — **commands**, **invariants**, **conventions**. Standardized across **three layers** — **global**, **pattern**, **project** — and composed deterministically from layered slots and inserts.
+- **Expository artifacts** — **CLAUDE.md**, **README.md**. Concept-driven and LLM-authored as whole files. The global layer is a concept checklist + style guide rather than a template with holes.
+
+Both classes are produced by the same `forge create` and `forge update` operations; they differ in how the global layer constrains the output.
 
 ## What forge is for
 
-A hybrid runtime project carries three things every developer (human or AI) needs to read before working in it:
+A hybrid runtime project carries five things every developer (human or AI) needs to read before working in it:
 
 - **Commands** — agent personas invoked by `/<name>` (e.g. `/architect`, `/review`, `/spec`). They define how the agent behaves for a given task.
 - **Invariants** — load-bearing rules. Violating them breaks the system.
 - **Conventions** — guidelines for consistency. Violating them doesn't break the system; the project still works, but readers and reviewers diverge.
+- **CLAUDE.md** — the agent's entry point. Persona, look-up map, how-to-run, project-specific don'ts.
+- **README.md** — the project's context. What it is, why it exists, how it is used.
 
-Without forge, every project authors all three from scratch. They drift. The same persona looks different across projects. The same "no silent drops" invariant gets re-stated five different ways. Reviewers and AI agents can't carry skills across projects because the surface keeps changing.
+Without forge, every project authors all five from scratch. They drift. The same persona looks different across projects. The same "no silent drops" invariant gets re-stated five different ways. CLAUDE.md files balloon with operational content that should have been pushed into commands. Reviewers and AI agents can't carry skills across projects because the surface keeps changing.
 
-Forge fixes that by **owning the standard parts and letting projects customize only what's actually project-specific.**
+Forge fixes that by **owning the standard parts and letting projects customize only what's actually project-specific.** Structural artifacts get layered templates; expository artifacts get concept-checklist specs. Both produce predictable shape across projects without flattening voice.
 
 ## The three-layer model
 
@@ -30,9 +37,33 @@ Each artifact type is composed from three layers:
 
 This is what makes the system creatable from prose. The LLM is not generating a whole project from scratch; it is *customizing* a known scaffold against a description. The scaffold carries everything project-independent.
 
-## Symmetry across artifact types
+## Symmetry across structural artifact types
 
 Commands, invariants, and conventions all behave the same way: their project layer is authored in `.forge/manifest.yaml`, and the composed output is written to the project tree at the path the manifest declares. **Source path and destination path are always disjoint.** A second composition run reads the same manifest-resident project layer it read the first time — never its own previously-written output — so re-applying the baseline is idempotent by construction rather than by accident.
+
+Expository artifacts (CLAUDE.md, README.md) are deliberately *not* symmetric with the structural class. Their value is voice and framing, which slot-and-insert composition flattens. Their global layer is a spec the LLM authors against; the manifest does not carry slot fills for them. See "Two classes of artifact" below.
+
+## Two classes of artifact
+
+Forge produces two kinds of file with different shapes:
+
+**Structural artifacts** (commands, invariants, conventions) are *composed* from layered content:
+
+- The global layer is a template with named placeholders.
+- The pattern layer contributes slot fills and insert bodies for projects declaring that pattern.
+- The project layer (in `.forge/manifest.yaml`) provides project-specific slot fills and insert bodies.
+- A deterministic resolver merges them into output files.
+
+The value of structural artifacts is *predictability* — two projects with the same pattern have predictable variants of the same files, so reviewers and agents can carry skills across projects.
+
+**Expository artifacts** (CLAUDE.md, README.md) are *authored* against a concept-checklist spec:
+
+- The global layer (`expository/global/<file>.spec.md`) is a list of required and optional concepts the file must cover, plus a style guide.
+- The pattern layer (`expository/pattern/<pattern>/<file>.spec.md`) contributes deltas to the concept list (e.g., KB adds a citation-discipline concept).
+- The LLM reads the spec, the pattern delta, the project description, and any existing on-disk file, then authors the whole file.
+- Validation is concept-coverage (does the file address the required concepts?), not slot-coverage.
+
+The value of expository artifacts is *voice and framing* — the prose adapts to the project rather than fitting a fixed template. CLAUDE.md drives the agent; README.md is the project's context. See `expository/global/CLAUDE.md.spec.md` and `expository/global/README.md.spec.md` for the concept checklists.
 
 ## Patterns
 
@@ -47,13 +78,14 @@ Patterns are how forge serves "a few project types" without collapsing to either
 Inputs: a description of the project, or an existing codebase to analyze. Optionally, an explicit pattern declaration.
 
 Process:
-1. The LLM reads the description (or codebase) and proposes a pattern, language, domains, and a manifest skeleton.
-2. The LLM authors the project layer — fills the slots and inserts the global and pattern layers expose.
-3. Forge validates the manifest against the schema.
-4. Forge composes layered output for commands, invariants, and conventions.
-5. Forge writes the composed output into the project tree (with user approval).
+1. The LLM reads the description (or codebase) and proposes a pattern, language, domains, the active command set, and a manifest skeleton.
+2. The LLM authors the project layer for active commands — fills the slots and inserts the global and pattern layers expose.
+3. The LLM authors CLAUDE.md and README.md against their concept-checklist + style-guide specs.
+4. Forge validates the manifest against the schema.
+5. Forge composes layered output for commands, invariants, and conventions.
+6. Forge writes composed structural output and authored expository output into the project tree (with user approval).
 
-Output: a project containing `.forge/manifest.yaml` plus composed `commands/`, `invariants/`, and `conventions/` files at the paths the manifest declares.
+Output: a project containing `.forge/manifest.yaml`, composed `commands/`, `invariants/`, `conventions/` files at the paths the manifest declares, and authored `CLAUDE.md` and `README.md` at the project root.
 
 ### `forge update <project>`
 
@@ -61,12 +93,13 @@ Inputs: an existing project with a `.forge/manifest.yaml`.
 
 Process:
 1. The LLM re-evaluates the project layer against current state — the description may have evolved, new code may exist, the global or pattern layers may have changed.
-2. Forge re-composes layered output.
-3. Forge diffs against what's already on disk and presents the changes (with user approval).
+2. Forge re-composes layered output for structural artifacts.
+3. The LLM re-authors CLAUDE.md and README.md against current state, reading the existing files and reconciling against the current description and concept specs.
+4. Forge diffs against what's already on disk and presents the changes (with user approval).
 
-Output: the project's commands, invariants, and conventions re-aligned with current baseline + current project state.
+Output: the project's structural and expository artifacts re-aligned with current baseline + current project state.
 
-Create and update share the same composition mechanism. The only difference is whether the manifest exists going in.
+Create and update share the same composition mechanism for structural artifacts and the same authoring path for expository artifacts. The only difference is whether the manifest exists going in.
 
 ## What's in this repo
 
@@ -82,6 +115,9 @@ Create and update share the same composition mechanism. The only difference is w
 | `conventions/global/<lang>.md` | Layer-1 universal coding conventions per language. |
 | `conventions/pattern/<pattern>/<lang>.md` | Layer-2 conventions per pattern + language. |
 | `conventions/domain/<domain>/<lang>.md` | Cross-cutting domain conventions. |
+| `expository/global/CLAUDE.md.spec.md` | Concept checklist and style guide for project CLAUDE.md files. |
+| `expository/global/README.md.spec.md` | Concept checklist and style guide for project README.md files. |
+| `expository/pattern/<pattern>/` | Pattern-specific deltas to the expository concept checklists. |
 | `registry/projects.yaml` | The list of projects forge knows about. Single source of truth for project metadata (FG-1). |
 | `docs/invariants/` | Forge's own invariants (FG-*) — the rules that govern how forge itself operates. |
 | `tests/` | Resolver and CLI tests, including a synthetic compiler-pattern fixture under `tests/fixtures/sample_project/`. |
@@ -90,10 +126,11 @@ Create and update share the same composition mechanism. The only difference is w
 A project's `.forge/manifest.yaml` declares:
 
 - **Patterns** — primary (and optionally secondary, scoped to subtrees).
+- **Commands** — the active subset of baseline commands for this project.
 - **Domains** — cross-cutting concerns the project has.
 - **Language** — for selecting which conventions files apply.
-- **Resolution** — where the composed output should be written in the project tree.
-- **Project layer** — slots and inserts the LLM authored against the description, keyed by command name.
+- **Resolution** — where the composed structural output should be written in the project tree.
+- **Project layer** — slots and inserts the LLM authored against the description, keyed by command name. Expository artifacts (CLAUDE.md, README.md) are not represented here; they are authored as whole files against the expository specs.
 
 ## Forge's own invariants
 

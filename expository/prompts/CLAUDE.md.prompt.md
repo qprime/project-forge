@@ -6,23 +6,21 @@ kind: authoring-prompt
 
 # CLAUDE.md — authoring prompt
 
-Run during `forge create` (and `forge update` when the description or the spec has changed) to author the project's `CLAUDE.md` at the project root.
-
-This is not a slot-fill prompt. The output is the **whole file**, written against the concept checklist and the project's prose description. There is no manifest project layer for CLAUDE.md and no separate pattern-layer spec — pattern-conditional concepts live inline in the spec and are followed when the project's `patterns.primary` matches.
+Run during `forge create` and during `forge update` when the description or the spec has changed. Produces the project's `CLAUDE.md` at the project root as a whole-file output.
 
 ---
 
 ## Inputs
 
-Read all of these before writing. Do not skip any input.
+Read all of these before writing.
 
-1. **The project's prose description** — for new projects, the user-supplied description; for legacy projects, the description distilled by the legacy-migration prompt.
-2. **The manifest** at `<project>/.forge/manifest.yaml` — already populated by the manifest-skeleton prompt. You need `patterns.primary` to know which conditional concepts in the spec apply, `commands` to know what's resolvable, `project_context` for description and vocabulary.
-3. **The expository spec** at `expository/CLAUDE.md.spec.md` — the concept checklist and style guide every CLAUDE.md must follow, including pattern-conditional sections.
-4. **The reference exemplar** — forge's own `CLAUDE.md` at the repo root. Not a template to copy; an example of the target shape, length, and voice.
-5. **The existing on-disk file** at `<project>/CLAUDE.md`, if it exists — read it. During `forge update` this is the prior version that you reconcile against; during `forge create` for a legacy project, the migration prompt has already turned it into the description in input 1.
+1. **The project's prose description** — for new projects, the user-supplied description; for projects coming from the legacy migration prompt, the description it produced.
+2. **The manifest** at `<project>/.forge/manifest.yaml`. Read `patterns.primary` to determine which conditional concepts in the spec apply, `commands` to know which agent personas resolve, and `project_context` for description and vocabulary.
+3. **The expository spec** at `expository/CLAUDE.md.spec.md` — the concept checklist and style guide, including pattern-conditional sections.
+4. **The reference exemplar** — the `CLAUDE.md` at the root of the project-forge repository. Used as a calibration of target shape, length, and voice. Not a template to copy.
+5. **The existing on-disk file** at `<project>/CLAUDE.md`, if it exists. During `forge update`, this is the prior version; during `forge create` against a legacy project, the migration prompt has already absorbed it into input 1.
 
-If any of inputs 1, 3, or 4 is missing, stop and report the gap. Do not write a CLAUDE.md without the spec and an exemplar to anchor against.
+If any of inputs 1, 3, or 4 is missing, stop and report the gap.
 
 ---
 
@@ -30,34 +28,34 @@ If any of inputs 1, 3, or 4 is missing, stop and report the gap. Do not write a 
 
 ### Step 1 — Concept inventory
 
-List the required and optional concepts the file must cover. Required concepts come from the spec's "Required concepts" section (persona, look-up map, how to run/verify, don'ts) **plus** any "Pattern-conditional concepts" sections matching the manifest's `patterns.primary` (for KB: citation discipline, corpus discipline, stage awareness). Optional concepts are added only when the project benefits — do not force optional sections.
+List the required and optional concepts the file must cover. Required concepts come from the spec's "Required concepts" section, plus any "Pattern-conditional concepts" matching the manifest's `patterns.primary`. Add optional concepts only when the project has explicit material for them.
 
 ### Step 2 — Concept-to-section mapping
 
-For each required concept, decide what section it lives in. Some concepts may share a section (a project's persona and modes might be one "Persona" section); some may need their own (don'ts are usually their own section). Do not create a section per concept mechanically — section structure should follow the project's natural shape.
+Decide what section each concept lives in. Some concepts share a section; some need their own. Section structure follows the project's natural shape, not a one-section-per-concept template.
 
 ### Step 3 — Author the file
 
-Write the whole file in one pass, in the project's voice. Length target: forge's own ~34 lines is a *short* end of the range; ~60 lines is acceptable for a more complex project; over 100 lines is a smell that operational content is leaking in instead of being pushed into commands/invariants.
+Write the whole file in one pass, in the project's voice. Match length to the project's complexity, but stay terse — operational reference content belongs in commands, invariants, or conventions rather than inlined here.
 
 For each section:
 
-- **Persona** — name who the agent is in this project. One line plus, when needed, a short paragraph naming what makes this persona distinct. Apply pattern-conditional style guidance from the spec (e.g., for KB, persona is study-partner or curator-shaped, not engineer-shaped).
-- **Look-up map** — point to README, the invariants directory, the active commands, and any load-bearing project artifacts. Inline references or a short table. Do not duplicate content; refer.
-- **How to run / verify** — project-specific operational instructions. Wrapper scripts, validation invocations, corpus operations. If the project has no executable surface, replace with how authoring/review/posting work.
-- **Don'ts** — project-specific traps, *not* generic agent defaults. Pull from the project's description, its existing CLAUDE.md if any, and any pattern-conditional don't-style guidance from the spec.
-- **Pattern-conditional concepts** — author each required conditional concept that applies (e.g., for KB: citation discipline, corpus discipline, stage awareness). These can be their own sections or folded into existing ones (citation discipline often lives near don'ts; stage awareness near how-to-run).
-- **Optional concepts** — only when the project genuinely benefits. Do not include modes, agent constraints, when-stuck, or recognition-cue framing unless the project has explicit material for them.
+- **Persona** — name who the agent is in this project. One line plus, when needed, a short paragraph naming what makes this persona distinct. Apply pattern-conditional style guidance from the spec.
+- **Look-up map** — point to README, the invariants directory, the active commands, and any load-bearing project artifacts. Refer; do not duplicate.
+- **How to operate** — project-specific operational instructions. For projects with executable surfaces, name wrapper scripts and conventions; for corpus projects, name the authoring, review, and posting surface.
+- **Don'ts** — project-specific traps. Pull from the project description, the existing CLAUDE.md if any, and any pattern-conditional don't-style guidance.
+- **Pattern-conditional concepts** — author each required conditional concept that applies. These can be their own sections or folded into adjacent sections (citation discipline often sits with don'ts; stage awareness with how-to-operate).
+- **Optional concepts** — only when the project has explicit material.
 
 ### Step 4 — Self-check against the spec
 
 Before returning, verify:
 
-- Every required concept from the spec, including all matching pattern-conditional concepts, appears somewhere in the file.
-- The file does not restate "what this project is" — that's README's job. A brief shape-anchor ("a CAM compiler pipeline," "a study workspace") is allowed only as setup for the persona.
+- Every required concept from the spec, including all matching pattern-conditional concepts, appears in the file.
+- The file does not restate "what this project is" — that's README's job. A brief shape-anchor is allowed only as setup for the persona.
 - The file refers outward (to README, invariants, commands) rather than inlining their content.
-- The voice is imperative for instructions, declarative for facts, and free of conversation residue.
-- No ornamental sections (a section with one bullet is not a section).
+- The voice is imperative for instructions, declarative for facts. No conversation residue.
+- Sections with one bullet are not sections.
 
 If any required concept is missing or any anti-pattern is present, revise before returning.
 
@@ -65,8 +63,6 @@ If any required concept is missing or any anti-pattern is present, revise before
 
 ## Output
 
-The whole content of `<project>/CLAUDE.md`, ready to write at the project root. No YAML wrapper, no slot block — just the markdown file.
+The full content of `<project>/CLAUDE.md`, ready to write at the project root. Markdown only — no YAML wrapper, no slot block, no frontmatter unless the project specifically reads CLAUDE.md frontmatter.
 
-Begin the file with `# CLAUDE.md — <project name>`. Use H2 for sections. Follow the markdown conventions in `conventions/global/markdown.md` (one H1 per file, terse prose, citations and references where appropriate).
-
-Do not include a frontmatter block on the output file unless the project specifically reads CLAUDE.md frontmatter (almost no project does).
+Begin the file with `# CLAUDE.md — <project name>`. Use H2 for sections. Follow `conventions/global/markdown.md`.

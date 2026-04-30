@@ -41,7 +41,7 @@ This is what makes the system creatable from prose. The LLM is not generating a 
 
 Commands, invariants, and conventions all behave the same way: their project layer is authored in `.forge/manifest.yaml`, and the composed output is written to the project tree at the path the manifest declares. **Source path and destination path are always disjoint.** A second composition run reads the same manifest-resident project layer it read the first time — never its own previously-written output — so re-applying the baseline is idempotent by construction rather than by accident.
 
-Expository artifacts (CLAUDE.md, README.md) are deliberately *not* symmetric with the structural class. Their value is voice and framing, which slot-and-insert composition flattens. Their global layer is a spec the LLM authors against; the manifest does not carry slot fills for them. See "Two classes of artifact" below.
+Expository artifacts (CLAUDE.md, README.md) are deliberately *not* symmetric with the structural class. They are not layered at all — there is no global/pattern/project composition. A single spec per file covers what every CLAUDE.md or README.md must contain, with pattern-specific concepts called out inline as conditional sections. The LLM reads the spec, follows the conditional branches that match the project's `patterns.primary`, and authors the whole file. See "Two classes of artifact" below.
 
 ## Two classes of artifact
 
@@ -56,14 +56,14 @@ Forge produces two kinds of file with different shapes:
 
 The value of structural artifacts is *predictability* — two projects with the same pattern have predictable variants of the same files, so reviewers and agents can carry skills across projects.
 
-**Expository artifacts** (CLAUDE.md, README.md) are *authored* against a concept-checklist spec:
+**Expository artifacts** (CLAUDE.md, README.md) are *authored* against a concept-checklist spec, with no layering:
 
-- The global layer (`expository/global/<file>.spec.md`) is a list of required and optional concepts the file must cover, plus a style guide.
-- The pattern layer (`expository/pattern/<pattern>/<file>.spec.md`) contributes deltas to the concept list (e.g., KB adds a citation-discipline concept).
-- The LLM reads the spec, the pattern delta, the project description, and any existing on-disk file, then authors the whole file.
+- A single spec per artifact (`expository/CLAUDE.md.spec.md`, `expository/README.md.spec.md`) lists the required and optional concepts the file must cover, plus a style guide.
+- Pattern-specific concepts live inline in the spec as conditional sections ("when pattern is `kb`, also cover X"). The authoring prompt reads `patterns.primary` from the manifest and follows the matching branches.
+- The LLM reads the spec, the project description, the reference exemplar, and any existing on-disk file, then authors the whole file.
 - Validation is concept-coverage (does the file address the required concepts?), not slot-coverage.
 
-The value of expository artifacts is *voice and framing* — the prose adapts to the project rather than fitting a fixed template. CLAUDE.md drives the agent; README.md is the project's context. See `expository/global/CLAUDE.md.spec.md` and `expository/global/README.md.spec.md` for the concept checklists.
+The value of expository artifacts is *voice and framing* — the prose adapts to the project rather than fitting a fixed template. CLAUDE.md drives the agent; README.md is the project's context. See `expository/CLAUDE.md.spec.md` and `expository/README.md.spec.md` for the concept checklists.
 
 ## Patterns
 
@@ -115,9 +115,9 @@ Create and update share the same composition mechanism for structural artifacts 
 | `conventions/global/<lang>.md` | Layer-1 universal coding conventions per language. |
 | `conventions/pattern/<pattern>/<lang>.md` | Layer-2 conventions per pattern + language. |
 | `conventions/domain/<domain>/<lang>.md` | Cross-cutting domain conventions. |
-| `expository/global/CLAUDE.md.spec.md` | Concept checklist and style guide for project CLAUDE.md files. |
-| `expository/global/README.md.spec.md` | Concept checklist and style guide for project README.md files. |
-| `expository/pattern/<pattern>/` | Pattern-specific deltas to the expository concept checklists. |
+| `expository/CLAUDE.md.spec.md` | Concept checklist and style guide for project CLAUDE.md files. Pattern-specific concepts are inline conditionals, not a separate layer. |
+| `expository/README.md.spec.md` | Concept checklist and style guide for project README.md files. Same shape as the CLAUDE.md spec. |
+| `expository/prompts/` | LLM-facing authoring prompts (`CLAUDE.md.prompt.md`, `README.md.prompt.md`, `legacy-migration.prompt.md`) that produce expository files from the specs and the project description. |
 | `registry/projects.yaml` | The list of projects forge knows about. Single source of truth for project metadata (FG-1). |
 | `docs/invariants/` | Forge's own invariants (FG-*) — the rules that govern how forge itself operates. |
 | `tests/` | Resolver and CLI tests, including a synthetic compiler-pattern fixture under `tests/fixtures/sample_project/`. |

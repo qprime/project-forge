@@ -1,14 +1,15 @@
 ---
 artifact_class: expository
 target: README.md
-layer: global
 ---
 
 # README.md — Concept Checklist and Style Guide
 
-This is the global spec for `README.md` files in projects created by forge. It is not a template with slots — it is a checklist of concepts every project's README must cover, plus a style guide describing how those concepts should be expressed. The LLM authoring prompt reads this spec and produces the whole file.
+This is the spec for `README.md` files in projects created by forge. It is not a template with slots — it is a checklist of concepts every project's README must cover, plus a style guide describing how those concepts should be expressed. The LLM authoring prompt reads this spec and produces the whole file.
 
 For an exemplar of the target shape, read forge's own `README.md` at the repo root.
+
+This spec is not layered. Concepts that apply only when the project declares a particular pattern are called out inline as "if pattern is X, also cover Y" rather than living in a separate file. The authoring prompt reads `patterns.primary` from the manifest and follows the relevant conditional sections.
 
 ---
 
@@ -56,6 +57,31 @@ Quick start is for the literal reader — keep it copy-pasteable and tied to a r
 
 ---
 
+## Pattern-conditional concepts
+
+Cover these only when the project's `patterns.primary` matches.
+
+### When pattern is `kb`
+
+A KB project's README has a job the global concepts don't fully cover: it must tell a reader *how the corpus is organized* and *how to read it*. A KB without that section reads like a pile of files rather than a navigable knowledge base.
+
+KB projects must additionally cover:
+
+- **Corpus structure** — how the corpus is organized: tracks (when present), the role of `shared/` or cross-cutting directories, the source index, and any structural commitments that affect navigation. A directory tree alone is not enough; the reader needs to know *why* the directories are arranged the way they are. Cover the top-level layout, the question each top-level directory answers, and any cross-cutting artifacts that bind the corpus together (a diagnostic checklist, a glossary, a master index).
+- **Reading order** — where a new reader should start. A recommended starting point (a track's README, a primer note, a reading order document). For multi-track corpora, how the tracks relate (parallel? sequential? one is foundational?). For projects with a synthesis pipeline, how the synthesized output relates to the corpus (the corpus is the source of truth; synthesis is a query-time view).
+- **Scope boundary** — what the corpus is *not*. KBs accrete; without an explicit scope statement they drift into being everything-and-the-kitchen-sink. Applied-math-ml's "What This Is Not" section is the canonical shape. One or more "not" statements naming what's out of scope, with rationale per "not."
+
+KB style adjustments:
+
+- **Lead with the corpus's purpose, not its technology.** Say what the corpus *recognizes* or *covers* before saying what tools or formats are involved. The reader needs to know if this is the right corpus for their question before they need to know how it's stored.
+- **Show one entry as an example.** A short example of a typical corpus entry helps readers calibrate what kind of content lives here. This replaces the "Quick Start" section's role for executable projects — for a KB, "how to use" is "how to read."
+- **Tables for taxonomies, prose for relationships.** When the KB has a structural taxonomy (problem families, source types, methods), use a table. When the KB has relationships between entries (track A feeds track B, source X expands on source Y), use prose.
+- **Don't duplicate the agent's CLAUDE.md content.** README's audience is a human reader plus the agent on first contact. Discipline rules (citation format, corpus accumulation rules, naming stability) belong in CLAUDE.md, not README. README explains the corpus; CLAUDE.md tells the agent how to operate on it.
+
+(Other patterns currently have no README-specific conditional concepts. Add them here when a pattern develops needs that the global concepts don't cover.)
+
+---
+
 ## Optional concepts
 
 Add these when they earn their place:
@@ -75,6 +101,14 @@ Native backend builds, optional dependencies, platform notes. Use when there's a
 ### Project-specific principles
 
 Sometimes a project has a load-bearing principle that fits more naturally in README than in invariants ("forge is not a consumer of itself"). Use sparingly; if a principle is enforceable, it likely belongs in invariants.
+
+### Source index (KB only)
+
+When the corpus's claims trace to external sources, README should link the source index and briefly describe its structure. The KB pattern's citation discipline (`KB-2`) requires citations resolve; the README is where readers learn where citations point to.
+
+### Stage map (KB only)
+
+When the KB has built stages (synthesis, retrieval, assembly), README should document which are built and what they produce. A purely notes-first KB doesn't need this section.
 
 ---
 

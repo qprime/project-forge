@@ -1,14 +1,15 @@
 ---
 artifact_class: expository
 target: CLAUDE.md
-layer: global
 ---
 
 # CLAUDE.md — Concept Checklist and Style Guide
 
-This is the global spec for `CLAUDE.md` files in projects created by forge. It is not a template with slots — it is a checklist of concepts every project's CLAUDE.md must cover, plus a style guide describing how those concepts should be expressed. The LLM authoring prompt reads this spec and produces the whole file.
+This is the spec for `CLAUDE.md` files in projects created by forge. It is not a template with slots — it is a checklist of concepts every project's CLAUDE.md must cover, plus a style guide describing how those concepts should be expressed. The LLM authoring prompt reads this spec and produces the whole file.
 
 For an exemplar of the target shape, read forge's own `CLAUDE.md` at the repo root.
+
+This spec is not layered. Concepts that apply only when the project declares a particular pattern are called out inline as "if pattern is X, also cover Y" rather than living in a separate file. The authoring prompt reads `patterns.primary` from the manifest and follows the relevant conditional sections.
 
 ---
 
@@ -16,7 +17,7 @@ For an exemplar of the target shape, read forge's own `CLAUDE.md` at the repo ro
 
 CLAUDE.md drives the agent. It tells the agent who it is in this project, where to look for what, how to run itself, and what to avoid. It does **not** restate what the project is or why it exists — that is README's job. When the agent needs project context, it reads README.
 
-A CLAUDE.md should be short. Forge's own is ~34 lines. A long CLAUDE.md is usually project-specific operational content that should have moved into the layered system (commands, invariants, conventions) instead.
+A CLAUDE.md should be short. Forge's own is ~34 lines. A long CLAUDE.md is usually project-specific operational content that should have moved into the structural system (commands, invariants, conventions) instead.
 
 ---
 
@@ -55,6 +56,28 @@ The Don't list is project-specific by definition. Generic don'ts belong in the a
 
 ---
 
+## Pattern-conditional concepts
+
+Cover these only when the project's `patterns.primary` matches.
+
+### When pattern is `kb`
+
+KB projects are corpora — accumulating bodies of authored content where the load-bearing discipline is at *content-authoring time*, not at runtime. The agent in a KB project is operating on the corpus surface (reading, drafting, revising notes) rather than on a runtime pipeline. CLAUDE.md must additionally cover:
+
+- **Citation discipline** — where the source index lives (`sources/README.md`, `references.bib`, etc.), the expected citation format (`[source-id:section]`, footnote-style, link-style), and the rule for new claims (cite the corpus first, external sources second; flag uncited claims as drafts). Implements `KB-2` at the agent's authoring surface.
+- **Corpus discipline** — the rule for revisions (revise an entry only when the underlying claim was wrong; new perspectives are new entries), where new entries land (which track, which directory), whether the agent may rename entry filenames (default: no — filenames are stable identifiers). Implements `KB-3`.
+- **Stage awareness** — a one-line statement of which of the four KB stages (storage, retrieval, assembly, synthesis) are *built* and which are *human-performed* (e.g., "storage and retrieval are file-structure based; assembly and synthesis are humans-only"). For human-performed stages, name the agent's role as authoring corpus content for human readers, not generating synthesized output. For built stages, point to the relevant code.
+
+KB style adjustments:
+
+- **Persona is study-partner or corpus-curator shaped, not engineer-shaped.** Even when the KB has built code, the persona reflects content discipline; engineering is downstream of the authoring discipline that makes the corpus trustworthy.
+- **Don'ts emphasize content traps.** Don't generate uncited claims. Don't expand a topic into a notebook. Don't mutate older entries to "improve" them. Don't pull in domain examples from other projects.
+- **The how-to-run section names corpus operations, not build operations.** How to add an entry, how to find the source index, how to check citations resolve. Build/test sections are absent unless the KB has a built pipeline.
+
+(Other patterns — `compiler`, `declare-and-satisfy`, `bracketed-probabilistic` — currently have no CLAUDE.md-specific conditional concepts. Add them here when a pattern develops needs that the global concepts don't cover.)
+
+---
+
 ## Optional concepts
 
 Add these only when the project genuinely benefits:
@@ -70,6 +93,10 @@ Tool restrictions or harness-level rules ("don't use EnterPlanMode," "don't run 
 ### When stuck
 
 A short pointer-table for common confusion points. Optional because not every project has predictable stuck-points worth pre-answering.
+
+### Recognition-cue framing (KB only)
+
+When the project is a study or recognition-aid corpus (applied-math-ml is the canonical example), CLAUDE.md should briefly state the recognition-over-mastery framing so the agent doesn't drift into tutorial-writing mode. Skip this for KBs that aren't study-shaped (a doc corpus producing whitepapers does not need this).
 
 ---
 
